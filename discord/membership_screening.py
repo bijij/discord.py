@@ -258,9 +258,8 @@ class MembershipScreeningFormField:
     def values(self, value):
         if isinstance(value, (list, utils._Empty)):
             if isinstance(value, list):
-                for item in value:
-                    if not isinstance(item, str):
-                        raise TypeError('Expected List[str] or MembershipScreeningFormField.Empty but recieved List[%s] instead' % item.__class__.__name__)
+                if not all(isinstance(item, str) for item in value):
+                    raise TypeError('Expected List[str] or MembershipScreeningFormField.Empty but recieved List[%s] instead' % item.__class__.__name__)
             self._values = value
             return
                 
