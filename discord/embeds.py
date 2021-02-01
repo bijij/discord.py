@@ -29,17 +29,7 @@ import datetime
 from . import utils
 from .colour import Colour
 
-class _EmptyEmbed:
-    def __bool__(self):
-        return False
-
-    def __repr__(self):
-        return 'Embed.Empty'
-
-    def __len__(self):
-        return 0
-
-EmptyEmbed = _EmptyEmbed()
+EmptyEmbed = utils._Empty('Embed.Empty')
 
 class EmbedProxy:
     def __init__(self, layer):
@@ -202,7 +192,7 @@ class Embed:
 
     @colour.setter
     def colour(self, value):
-        if isinstance(value, (Colour, _EmptyEmbed)):
+        if isinstance(value, (Colour, utils._Empty)):
             self._colour = value
         elif isinstance(value, int):
             self._colour = Colour(value=value)
@@ -217,7 +207,7 @@ class Embed:
 
     @timestamp.setter
     def timestamp(self, value):
-        if isinstance(value, (datetime.datetime, _EmptyEmbed)):
+        if isinstance(value, (datetime.datetime, utils._Empty)):
             self._timestamp = value
         else:
             raise TypeError("Expected datetime.datetime or Embed.Empty received %s instead" % value.__class__.__name__)

@@ -43,6 +43,19 @@ from .errors import InvalidArgument
 DISCORD_EPOCH = 1420070400000
 MAX_ASYNCIO_SECONDS = 3456000
 
+class _Empty:
+    def __init__(self, repr):
+        self.repr = repr
+
+    def __bool__(self):
+        return False
+
+    def __repr__(self):
+        return  self.repr
+
+    def __len__(self):
+        return 0
+
 class cached_property:
     def __init__(self, function):
         self.function = function

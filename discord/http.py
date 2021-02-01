@@ -953,3 +953,9 @@ class HTTPClient:
 
     def edit_settings(self, **payload):
         return self.request(Route('PATCH', '/users/@me/settings'), json=payload)
+
+    def get_member_verification(self, guild_id):
+        return self.request(Route('GET', '/guilds/{guild_id}/member-verification', guild_id=guild_id))
+
+    def update_member_verification(self, guild_id, **payload):
+        return self.request(Route('PATCH', '/guilds/{guild_id}/member-verification', guild_id=guild_id), json=payload)

@@ -30,6 +30,7 @@ from .partial_emoji import PartialEmoji
 from .activity import *
 from .channel import *
 from .guild import Guild
+from .membership_screening import *
 from .flags import *
 from .relationship import Relationship
 from .member import Member, VoiceState

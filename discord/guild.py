@@ -45,6 +45,7 @@ from .widget import Widget
 from .asset import Asset
 from .flags import SystemChannelFlags
 from .integrations import Integration
+from .membership_screening import MembershipScreeningForm
 
 
 BanEntry = namedtuple('BanEntry', 'reason user')
@@ -2193,3 +2194,18 @@ class Guild(Hashable):
         ws = self._state._get_websocket(self.id)
         channel_id = channel.id if channel else None
         await ws.voice_state(self.id, channel_id, self_mute, self_deaf)
+
+    async def fetch_membership_screening_form(self):
+        """|coro|
+
+        Fetches the guild's membership screening form.
+
+        .. versionadded:: 1.7
+
+        Returns
+        --------
+        :class:`MembershipScreeningForm`
+            The guild's membership screening form.
+        """
+        data = await self._state.http.get_member_verification(self.id)
+        return MembershipScreeningForm(self, data)

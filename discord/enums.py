@@ -53,6 +53,7 @@ __all__ = (
     'ExpireBehaviour',
     'ExpireBehavior',
     'StickerType',
+    'MembershipScreeningFormFieldType'
 )
 
 def _create_value_cls(name):
@@ -450,6 +451,10 @@ class StickerType(Enum):
     png = 1
     apng = 2
     lottie = 3
+
+class MembershipScreeningFormFieldType(Enum):
+    server_rules = 'TERMS'
+    terms        = 'TERMS'
 
 def try_enum(cls, val):
     """A function that tries to turn the value into enum ``cls``.
