@@ -66,15 +66,6 @@ class MembershipScreeningForm:
         self.description = data.get('description')
         self.fields = [MembershipScreeningFormField.from_dict(f) for f in data['form_fields']]
     
-    def _handle_version(self, value):
-        self.version = value
-
-    def _handle_description(self, value):
-        self.description = value
-
-    def _handle_form_fields(self, value):
-        self.fields = [MembershipScreeningFormField.from_dict(f) for f in value]
-
     @property
     def enabled(self):
         """:class:`bool` Returns whether the guild has enabled membership screening."""
