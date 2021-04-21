@@ -117,7 +117,11 @@ class Flag:
 
         A required flag has no default value.
         """
-        return self.default is MISSING
+        if self.default is MISSING:
+            if issubclass(self.annotation, FlagConverter):
+                return not self.annotation._can_be_constructible()
+            return True
+        return False
 
 
 def flag(
