@@ -39,6 +39,7 @@ from .converter import run_converters
 from discord.utils import maybe_coroutine
 from dataclasses import dataclass, field
 from typing import (
+    Callable,
     Dict,
     Optional,
     Pattern,
@@ -255,6 +256,10 @@ def get_flags(namespace: Dict[str, Any], globals: Dict[str, Any], locals: Dict[s
     return flags
 
 
+def generate_pattern(keys: List[str], prefix: str, delimiter: str, regex_flags: int) -> re.Pattern:
+    joined = '|'.join(keys)
+    return re.compile(f'(({re.escape(prefix)})(?P<flag>{joined}){re.escape(delimiter)})', regex_flags)
+
 class FlagsMeta(type):
     if TYPE_CHECKING:
         __commands_is_flag__: bool
@@ -274,6 +279,7 @@ class FlagsMeta(type):
         case_insensitive: bool = MISSING,
         delimiter: str = MISSING,
         prefix: str = MISSING,
+        pattern_generator: Callable[[List[str], str, str, int], re.Pattern] = generate_pattern
     ):
         attrs['__commands_is_flag__'] = True
 
@@ -341,9 +347,7 @@ class FlagsMeta(type):
         keys.extend(re.escape(a) for a in aliases)
         keys = sorted(keys, key=lambda t: len(t), reverse=True)
         
-        joined = '|'.join(keys)
-        pattern = re.compile(f'(({re.escape(prefix)})(?P<flag>{joined}){re.escape(delimiter)})', regex_flags)
-        attrs['__commands_flag_regex__'] = pattern
+        attrs['__commands_flag_regex__'] = pattern_generator(keys, prefix, delimiter, regex_flags)
         attrs['__commands_flags__'] = flags
         attrs['__commands_flag_aliases__'] = aliases
 
@@ -457,6 +461,11 @@ class FlagConverter(metaclass=FlagsMeta):
     delimiter: :class:`str`
         The delimiter that separates a flag's argument from the flag's name.
         By default this is ``:``.
+    pattern_generator: Callable[[List[:class:`str`], :class:`str`, :class:`str`, :class:`int`], :class:`re.Pattern`]
+        A function to generate the flag matching regular expression.
+        This function must take a list of flag names, prefix, delimiter,
+        and regular expression flags. This function must return a regular expression pattern.
+        A default is provided.
     """
 
     @classmethod
@@ -485,6 +494,10 @@ class FlagConverter(metaclass=FlagsMeta):
         return f'<{self.__class__.__name__} {pairs}>'
 
     @classmethod
+    def parse_flag(cls, argument: str, flag: Flag, slice: slice) -> str:
+        return argument[slice].lstrip()
+
+    @classmethod
     def parse_flags(cls, argument: str) -> Dict[str, List[str]]:
         result: Dict[str, List[str]] = {}
         flags = cls.__commands_flags__
@@ -504,7 +517,8 @@ class FlagConverter(metaclass=FlagsMeta):
 
             flag = flags.get(key)
             if last_position and last_flag is not None:
-                value = argument[last_position : begin - 1].lstrip()
+                value = cls.parse_flag(argument, last_flag, slice(last_position, begin-1))
+                print(last_flag, value)
                 if not value:
                     raise MissingFlagArgument(last_flag)
 
@@ -520,7 +534,8 @@ class FlagConverter(metaclass=FlagsMeta):
 
         # Add the remaining string to the last available flag
         if last_position and last_flag is not None:
-            value = argument[last_position:].strip()
+            value = cls.parse_flag(argument, last_flag, slice(last_position, None))
+            print(last_flag, value)
             if not value:
                 raise MissingFlagArgument(last_flag)
 
