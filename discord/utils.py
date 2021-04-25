@@ -453,8 +453,8 @@ def _parse_ratelimit_header(request: _RequestLike, *, use_clock: bool = False) -
 async def maybe_coroutine(f: Callable[..., _MaybeCoro[T]], *args: Any, **kwargs: Any) -> T:
     value = f(*args, **kwargs)
     if _isawaitable(value):
-        return await value
-    return value
+        return await value  # type: ignore[no-any-return, misc]
+    return value   # type: ignore[return-value]
 
 
 async def async_all(gen, *, check=_isawaitable):
