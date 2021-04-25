@@ -28,9 +28,12 @@ import asyncio
 import collections.abc
 from typing import (
     Any,
+    AsyncIterator,
+    Awaitable,
     Callable,
     Dict,
     Generic,
+    Generator,
     Iterable,
     Iterator,
     List,
@@ -67,6 +70,8 @@ __all__ = (
     'remove_markdown',
     'escape_markdown',
     'escape_mentions',
+    'as_chunks',
+    'AsyncIteratorHelper',
 )
 
 DISCORD_EPOCH = 1420070400000
@@ -102,6 +107,10 @@ else:
 
 
 T = TypeVar('T')
+OT = TypeVar('OT')
+_MaybeCoro = Union[T, Awaitable[T]]
+_Func = Callable[[T], _MaybeCoro[OT]]
+_Iter = Union[Iterator[T], AsyncIterator[T]]
 T_co = TypeVar('T_co', covariant=True)
 CSP = TypeVar('CSP', bound='CachedSlotProperty')
 
@@ -441,12 +450,11 @@ def _parse_ratelimit_header(request: _RequestLike, *, use_clock: bool = False) -
         return float(reset_after)
 
 
-async def maybe_coroutine(f, *args, **kwargs):
+async def maybe_coroutine(f: Callable[..., _MaybeCoro[T]], *args: Any, **kwargs: Any) -> T:
     value = f(*args, **kwargs)
     if _isawaitable(value):
         return await value
-    else:
-        return value
+    return value
 
 
 async def async_all(gen, *, check=_isawaitable):
@@ -723,3 +731,234 @@ def escape_mentions(text: str) -> str:
         The text with the mentions removed.
     """
     return re.sub(r'@(everyone|here|[!&]?[0-9]{17,20})', '@\u200b\\1', text)
+
+
+def _chunk(max_size: int, iterator: Iterator[T]) -> Iterator[List[T]]:
+    ret = []
+    n = 0
+    for item in iterator:
+        ret.append(item)
+        n += 1
+        if n == max_size:
+            yield ret
+            ret = []
+            n = 0
+    if ret:
+        yield ret
+
+
+async def _achunk(max_size: int, iterator: AsyncIterator[T]) -> AsyncIterator[List[T]]:
+    ret = []
+    n = 0
+    async for item in iterator:
+        ret.append(item)
+        n += 1
+        if n == max_size:
+            yield ret
+            ret = []
+            n = 0
+    if ret:
+        yield ret
+
+
+async def _amap(func: _Func[T, OT], iterator: AsyncIterator[T]) -> AsyncIterator[OT]:
+    async for elem in iterator:
+        yield await maybe_coroutine(func, elem)
+
+
+async def _afilter(func: _Func[T, bool], iterator: AsyncIterator[T]) -> AsyncIterator[T]:
+    async for elem in iterator:
+        if await maybe_coroutine(func, elem):
+            yield elem
+
+@overload
+def as_chunks(max_size: int, iterator: Iterator[T]) -> Iterator[List[T]]:
+    ...
+
+
+@overload
+def as_chunks(max_size: int, iterator: AsyncIterator[T]) -> AsyncIterator[List[T]]:
+    ...
+
+
+def as_chunks(max_size: int, iterator: _Iter[T]) -> _Iter[List[T]]:
+    """A helper function that collects an iterator into chunks of a given size.
+    
+    Parameters
+    ----------
+    iterator: Union[:class:`Iterator`, :class:`AsyncIterator`]
+        The iterator to chunk, can be sync or async.
+    max_size: :class:`int`
+        The maximum chunk size.
+
+    Returns
+    --------
+    Union[:class:`Iterator`, :class:`AsyncIterator`]
+        A new iterator which yields chunks of a given size.
+
+    """
+    if isinstance(iterator, AsyncIterator):
+        return _achunk(max_size, iterator)
+    return _chunk(max_size, iterator)
+
+
+class AsyncIteratorHelper(Generic[T], Awaitable[List[T]]):
+    """
+    A helper class for interacting with async iterators.
+
+    .. container:: operations
+
+        .. describe:: async for x in y
+
+            Iterates over the contents of the async iterator.
+
+        .. describe:: await y
+
+            Returns a list of every element in the async iterator.
+
+    .. versionadded:: 2.0
+    
+    Parameters
+    -----------
+    iterator: :class:`AsyncIterator`
+        The async iterator to wrap.
+
+    """
+
+    def __init__(self, iterator: AsyncIterator[T]) -> None:
+        self._iterator = iterator
+
+    def __aiter__(self) -> AsyncIterator[T]:
+        return self._iterator
+
+    def __await__(self) -> Generator[Any, None, List[T]]:
+        return self.flatten().__await__()
+
+    def next(self) -> Awaitable[T]:
+        """|coro|
+
+        Advances the iterator by one, if possible. If no more items are found
+        then this raises :exc:`StopAsyncIteration`.
+        """
+        return self._iterator.__anext__()
+
+    async def find(self, predicate: _Func[T, bool]) -> Optional[T]:
+        """|coro|
+
+        Similar to :func:`utils.find` except run over the async iterator.
+
+        Unlike :func:`utils.find`, the predicate provided can be a
+        |coroutine_link|_.
+
+        Getting the last audit log with a reason or ``None``: ::
+
+            def predicate(event):
+                return event.reason is not None
+
+            event = await discord.utils.AsyncIteratorHelper(guild.audit_logs()).find(predicate)
+
+        :param predicate: The predicate to use. Could be a |coroutine_link|_.
+        :return: The first element that returns ``True`` for the predicate or ``None``.
+        """
+        while True:
+            try:
+                elem = await self.next()
+            except StopAsyncIteration:
+                return None
+
+            if await maybe_coroutine(predicate, elem):
+                return elem
+
+    def get(self, **attrs: Any) -> Awaitable[Optional[T]]:
+        """|coro|
+
+        Similar to :func:`utils.get` except run over the async iterator.
+
+        Getting the last message by a user named 'Dave' or ``None``: ::
+
+            msg = await discord.utils.AsyncIteratorHelper(channel.history()).get(author__name='Dave')
+        """
+        def predicate(elem: T) -> bool:
+            for attr, val in attrs.items():
+                nested = attr.split('__')
+                obj = elem
+                for attribute in nested:
+                    obj = getattr(obj, attribute)
+
+                if obj != val:
+                    return False
+            return True
+
+        return self.find(predicate)
+
+    def map(self, func: _Func[T, OT]) -> AsyncIteratorHelper[OT]:
+        """
+        This is similar to the built-in :func:`map <py:map>` function. Another
+        :class:`AsyncIteratorHelper` is returned that executes the function on
+        every element it is iterating over. This function can either be a
+        regular function or a |coroutine_link|_.
+
+        Creating a content iterator: ::
+
+            def transform(message):
+                return message.content
+
+            async for content in discord.utils.AsyncIteratorHelper(channel.history()).map(transform):
+                message_length = len(content)
+
+        :param func: The function to call on every element. Could be a |coroutine_link|_.
+        :rtype: :class:`AsyncIteratorHelper`
+        """
+        return self.__class__(_amap(func, self._iterator))
+
+    def filter(self, predicate: _Func[T, bool]) -> AsyncIteratorHelper[T]:
+        """
+        This is similar to the built-in :func:`filter <py:filter>` function. Another
+        :class:`AsyncIteratorHelper` is returned that filters over the original
+        async iterator. This predicate can be a regular function or a |coroutine_link|_.
+
+        Getting messages by non-bot accounts: ::
+
+            def predicate(message):
+                return not message.author.bot
+
+            async for elem in discord.utils.AsyncIteratorHelper(channel.history()).filter(predicate):
+                ...
+
+        :param predicate: The predicate to call on every element. Could be a |coroutine_link|_.
+        :rtype: :class:`AsyncIteratorHelper`
+        """
+        return self.__class__(_afilter(predicate, self._iterator))
+
+    def chunk(self, max_size: int) -> AsyncIteratorHelper[List[T]]:
+        """
+        Collects items into chunks of up to a given maximum size.
+        Another :class:`AsyncIteratorHelper` is returned which collects items into
+        :class:`list's of a given size. The maximum chunk size must be a positive integer.
+
+        Collecting groups of users: ::
+
+            async for leader, *users in discord.utils.AsyncIteratorHelper(reaction.users()).chunk(3):
+                ...
+
+        .. warning::
+
+            The last chunk collected may not be as large as ``max_size``.
+
+        :param max_size: The size of individual chunks.
+        :rtype: :class:`AsyncIteratorHelper`
+        
+        """
+        if max_size <= 0:
+            raise ValueError('Chunk sizes must be greater than 0.')
+        return self.__class__(_achunk(max_size, self._iterator))
+
+    async def flatten(self) -> List[T]:
+        """|coro|
+
+        Flattens the async iterator into a :class:`list` with all the elements.
+
+        :return: A list of every element in the async iterator.
+        :rtype: list
+        """
+        return [elem async for elem in self._iterator]

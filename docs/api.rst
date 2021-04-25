@@ -927,6 +927,9 @@ Utility Functions
 
 .. _discord-api-enums:
 
+.. autoclass:: discord.utils.AsyncIteratorHelper
+    :members:
+
 Enumerations
 -------------
 
