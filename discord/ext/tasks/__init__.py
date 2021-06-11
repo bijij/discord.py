@@ -757,4 +757,4 @@ def loop(
             'loop': loop,
         }
         return Loop[P, T](func, **kwargs)
-    return decorator  # type: ignore - pyright bug
+    return decorator
