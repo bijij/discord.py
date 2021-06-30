@@ -48,24 +48,82 @@ class ApplicationCommand(_ApplicationCommandOptional):
     description: str
 
 
-class _ApplicationCommandOptionOptional(TypedDict, total=False):
-    choices: List[ApplicationCommandOptionChoice]
-    options: List[ApplicationCommandOption]
-
-
 ApplicationCommandOptionType = Literal[1, 2, 3, 4, 5, 6, 7, 8, 9]
 
 
-class ApplicationCommandOption(_ApplicationCommandOptionOptional):
-    type: ApplicationCommandOptionType
+class _ApplicationCommandOption(TypedDict):
     name: str
     description: str
-    required: bool
 
 
-class ApplicationCommandOptionChoice(TypedDict):
+class _ApplicationCommandOptionSubcommandOptional(
+    _ApplicationCommandOption, total=False
+):
+    options: List[ApplicationCommandOption]
+
+
+class _ApplicationCommandOptionSubcommand(
+    _ApplicationCommandOptionSubcommandOptional
+):
+    type: Literal[1, 2]
+
+
+class _ApplicationCommandOptionStringOptional(
+    _ApplicationCommandOption, total=False
+):
+    choices: List[_ApplicationCommandOptionChoiceString]
+
+
+class _ApplicationCommandOptionString(
+    _ApplicationCommandOptionStringOptional
+):
+    type: Literal[3]
+
+
+class _ApplicationCommandOptionIntegerOptional(_ApplicationCommandOption, total=False):
+    choices: List[_ApplicationCommandOptionChoiceInteger]
+
+
+class _ApplicationCommandOptionInteger(
+    _ApplicationCommandOptionIntegerOptional
+):
+    type: Literal[4]
+
+
+class _ApplicationCommandOptionOther(
+    _ApplicationCommandOption
+):
+    type: Literal[6, 7, 8, 9]
+
+
+ApplicationCommandOption = Union[
+    _ApplicationCommandOptionSubcommand,
+    _ApplicationCommandOptionString,
+    _ApplicationCommandOptionInteger,
+    _ApplicationCommandOptionOther,
+]
+
+
+class _ApplicationCommandOptionChoice(TypedDict):
     name: str
-    value: Union[str, int]
+
+
+class _ApplicationCommandOptionChoiceString(
+    _ApplicationCommandOptionChoice
+):
+    value: str
+
+
+class _ApplicationCommandOptionChoiceInteger(
+    _ApplicationCommandOptionChoice
+):
+    value: int
+
+
+ApplicationCommandOptionChoice = Union[
+    _ApplicationCommandOptionChoiceString,
+    _ApplicationCommandOptionChoiceInteger,
+]
 
 
 ApplicationCommandPermissionType = Literal[1, 2]
