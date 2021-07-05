@@ -21,15 +21,21 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 """
+from __future__ import annotations
 
 import inspect
 import copy
+
+from typing import Any, ClassVar, Dict, TypeVar, Type
+
 from ._types import _BaseCommand
 
 __all__ = (
     'CogMeta',
     'Cog',
 )
+
+CT = TypeVar('CT', bound='Cog')
 
 class CogMeta(type):
     """A metaclass for defining a cog.
@@ -90,6 +96,8 @@ class CogMeta(type):
                 async def bar(self, ctx):
                     pass # hidden -> False
     """
+    __cog_name__: ClassVar[str]
+    __cog_settings__: ClassVar[Dict[str, Any]]
 
     def __new__(cls, *args, **kwargs):
         name, bases, attrs = args
@@ -166,7 +174,7 @@ class Cog(metaclass=CogMeta):
     are equally valid here.
     """
 
-    def __new__(cls, *args, **kwargs):
+    def __new__(cls: Type[CT], *args: Any, **kwargs: Any) -> CT:
         # For issue 426, we need to store a copy of the command objects
         # since we modify them to inject `self` to them.
         # To do this, we need to interfere with the Cog creation process.
