@@ -107,9 +107,10 @@ else:
     P = TypeVar('P')
 
 Coro = Coroutine[Any, Any, T]
+MaybeCoro = Union[T, Coro[T]]
 CoroFunc = Callable[..., Coro[Any]]
 
-Check = Union[Callable[[Cog, Context], bool], Callable[[Context], Coro[bool]]]
+Check = Union[Callable[[Cog, Context], bool], Callable[[Context], MaybeCoro[bool]]]
 Hook = Union[Callable[[Cog, Context], Coro[Any]], Callable[[Context], Coro[Any]]]
 Error = Union[Callable[[Cog, Context, CommandError], Coro[Any]], Callable[[Context, CommandError], Coro[Any]]]
 
@@ -1112,7 +1113,7 @@ class Command(_BaseCommand, Generic[P, T, CT]):
                 # since we have no checks, then we just return True.
                 return True
 
-            return await discord.utils.async_all(predicate(ctx) for predicate in predicates)
+            return await discord.utils.async_all(predicate(ctx) for predicate in predicates)  # type: ignore
         finally:
             ctx.command = original
 
@@ -1699,7 +1700,7 @@ def check(predicate: Check) -> Callable[[T], T]:
     else:
         @functools.wraps(predicate)
         async def wrapper(ctx):
-            return predicate(ctx)
+            return predicate(ctx)  # type: ignore
         decorator.predicate = wrapper
 
     return decorator  # type: ignore
