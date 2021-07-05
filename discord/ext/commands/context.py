@@ -34,8 +34,6 @@ import discord.utils
 from ...message import Message
 
 if TYPE_CHECKING:
-    from typing_extensions import ParamSpec
-
     from ...guild import Guild
     from ...member import Member
     from ...state import ConnectionState
@@ -58,11 +56,6 @@ MISSING: Any = discord.utils.MISSING
 T = TypeVar('T')
 BT = TypeVar('BT', bound="Union[Bot, AutoShardedBot]")
 CT = TypeVar('CT', bound="Cog")
-
-if TYPE_CHECKING:
-    P = ParamSpec('P')
-else:
-    P = TypeVar('P')
 
 
 class Context(discord.abc.Messageable, Generic[BT]):
@@ -152,7 +145,7 @@ class Context(discord.abc.Messageable, Generic[BT]):
         self.current_parameter: Optional[inspect.Parameter] = current_parameter
         self._state: ConnectionState = self.message._state
 
-    async def invoke(self, command: Command[P, T, CT], /, *args: P.args, **kwargs: P.kwargs) -> T:
+    async def invoke(self, command: Command, /, *args: Any, **kwargs: Any) -> Any:
         r"""|coro|
 
         Calls a command with the arguments given.
