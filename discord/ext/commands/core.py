@@ -54,12 +54,12 @@ from .cooldowns import Cooldown, BucketType, CooldownMapping, MaxConcurrency, Dy
 from .converter import run_converters, get_converter, Greedy
 from ._types import _BaseCommand
 from .cog import Cog
+from .context import Context
 
 
 if TYPE_CHECKING:
     from typing_extensions import Concatenate, ParamSpec, TypeGuard
 
-    from .context import Context
     from ...message import Message
 
 
@@ -108,8 +108,9 @@ else:
 
 Coro = Coroutine[Any, Any, T]
 CoroFunc = Callable[..., Coro[Any]]
-Check = Union[Callable[[Context], bool], Callable[[Context], Coro[bool]]]
-Hook = Union[Callable[[Context], Coro[Any]], Callable[[Any, Context], Coro[Any]]]
+
+Check = Union[Callable[[Cog, Context], bool], Callable[[Context], Coro[bool]]]
+Hook = Union[Callable[[Cog, Context], Coro[Any]], Callable[[Context], Coro[Any]]]
 Error = Union[Callable[[Cog, Context, CommandError], Coro[Any]], Callable[[Context, CommandError], Coro[Any]]]
 
 
