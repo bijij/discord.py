@@ -377,7 +377,6 @@ class RateLimitBucket:
         self.remaining -= 1
         self.outgoing += 1
 
-
     async def __aenter__(self) -> Self:
         await self.acquire()
         return self
@@ -399,6 +398,7 @@ class RateLimitBucket:
         else:
             self.outgoing -= 1
 
+
 # For some reason, the Discord voice websocket expects this header to be
 # completely lowercase while aiohttp respects spec and does it as case-insensitive
 aiohttp.hdrs.WEBSOCKET = 'websocket'  # type: ignore
@@ -419,7 +419,7 @@ class HTTPClient:
         self.loop: asyncio.AbstractEventLoop = asyncio.get_event_loop() if loop is None else loop
         self.connector: aiohttp.BaseConnector = connector or aiohttp.TCPConnector(limit=0)
         self.__session: aiohttp.ClientSession = MISSING  # filled in static_login
-        
+
         # Route Key -> Discord Identifier
         self._bucket_ids: Dict[RateLimitKey, str] = {}
         # Discord Identifier -> RateLimitBucket
