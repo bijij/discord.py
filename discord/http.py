@@ -359,6 +359,12 @@ class RateLimitBucket:
         for _ in range(count):
             self._wake_next()
 
+    async def _refresh(self) -> None:
+        async with self._sleeping:
+            await asyncio.sleep(self.reset_after)
+        self.reset()
+        self._wake(self.remaining)
+
     async def acquire(self) -> None:
         if self.expires is not None and self._loop.time() > self.expires:
             self.reset()
@@ -382,21 +388,13 @@ class RateLimitBucket:
         return self
 
     async def __aexit__(self, type: Type[BE], value: BE, traceback: TracebackType) -> None:
-        tokens = self.remaining - self.outgoing - 1
+        self.outgoing -= 1
+        tokens = self.remaining - self.outgoing
         if not self._sleeping.locked():
             if tokens <= 0:
-                async with self._sleeping:
-                    await asyncio.sleep(self.reset_after)
-                self.outgoing -= 1
-                self.reset()
-                self._wake(self.remaining)
+                asyncio.create_task(self._refresh())
             elif self._waiters:
-                self.outgoing -= 1
                 self._wake(tokens)
-            else:
-                self.outgoing -= 1
-        else:
-            self.outgoing -= 1
 
 
 # For some reason, the Discord voice websocket expects this header to be
@@ -476,7 +474,10 @@ class HTTPClient:
             bucket = self._buckets[bucket_id]
         except KeyError:
             bucket_id = None
-            bucket = self._unknown_buckets[bucket_key] = RateLimitBucket(self.loop)
+            try:
+                bucket = self._unknown_buckets[bucket_key]
+            except KeyError:
+                bucket = self._unknown_buckets[bucket_key] = RateLimitBucket(self.loop)
 
         # header creation
         headers: Dict[str, str] = {
@@ -553,7 +554,8 @@ class HTTPClient:
                                 _log.debug('A rate limit bucket has been exhausted (%r).', bucket)
 
                         except KeyError:
-                            pass
+                            if bucket_id is None:
+                                self._unknown_buckets.pop(bucket_key, None)
 
                         # the request was successful so just return the text/json
                         if 300 > response.status >= 200:
