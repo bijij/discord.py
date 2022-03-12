@@ -25,12 +25,15 @@ DEALINGS IN THE SOFTWARE.
 from __future__ import annotations
 
 import asyncio
+from collections import deque
+import datetime
 import logging
 import sys
 from typing import (
     Any,
     ClassVar,
     Coroutine,
+    Deque,
     Dict,
     Iterable,
     List,
@@ -46,9 +49,9 @@ from typing import (
     Union,
 )
 from urllib.parse import quote as _uriquote
-import weakref
 
 import aiohttp
+from multidict import CIMultiDictProxy
 
 from .errors import HTTPException, Forbidden, NotFound, LoginFailure, DiscordServerError, GatewayNotFound
 from .gateway import DiscordClientWebSocketResponse
@@ -103,6 +106,8 @@ if TYPE_CHECKING:
     T = TypeVar('T')
     BE = TypeVar('BE', bound=BaseException)
     Response = Coroutine[Any, Any, T]
+
+    RateLimitKey = Tuple[str, str, Optional[Snowflake], Optional[Snowflake], Optional[Snowflake], Optional[str]]
 
 
 async def json_or_text(response: aiohttp.ClientResponse) -> Union[Dict[str, Any], str]:
@@ -296,31 +301,103 @@ class Route:
         self.webhook_token: Optional[str] = parameters.get('webhook_token')
 
     @property
-    def bucket(self) -> str:
-        # the bucket is just method + path w/ major parameters
-        return f'{self.channel_id}:{self.guild_id}:{self.path}'
+    def key(self) -> RateLimitKey:
+        return self.method, self.path, self.channel_id, self.guild_id, self.webhook_id, self.webhook_token
 
 
-class MaybeUnlock:
-    def __init__(self, lock: asyncio.Lock) -> None:
-        self.lock: asyncio.Lock = lock
-        self._unlock: bool = True
+class RateLimitBucket:
+    def __init__(self, loop: asyncio.AbstractEventLoop) -> None:
+        self._loop: asyncio.AbstractEventLoop = loop
+        self._waiters: Deque[asyncio.Future[Any]] = deque()
+        self._sleeping: asyncio.Lock = asyncio.Lock()
 
-    def __enter__(self) -> Self:
+        self.limit: int = 1
+        self.remaining: int = self.limit
+        self.outgoing: int = 0
+
+        self.reset_after: float = 0.0
+        self.expires: Optional[float] = None
+
+        self.dirty: bool = False
+
+    def __repr__(self) -> str:
+        return f'<RateLimitBucket limit={self.limit} remaining={self.remaining}>'
+
+    def reset(self):
+        self.remaining = self.limit - self.outgoing
+        self.expires = None
+        self.reset_after = 0.0
+
+    def update(self, headers: CIMultiDictProxy[str], *, use_clock: bool = False) -> None:
+        self.limit = int(headers.get('X-Ratelimit-Limit', 1))
+
+        if self.dirty:
+            self.remaining = min(int(headers.get('X-Ratelimit-Remaining', 0)), self.limit - self.outgoing)
+        else:
+            self.remaining = int(headers.get('X-Ratelimit-Remaining', 0))
+            self.dirty = True
+
+        reset_after = headers.get('X-Ratelimit-Reset-After')
+        if use_clock or not reset_after:
+            utc = datetime.timezone.utc
+            now = datetime.datetime.now(utc)
+            reset = datetime.datetime.fromtimestamp(float(headers['X-Ratelimit-Reset']), utc)
+            self.reset_after = (reset - now).total_seconds()
+        else:
+            self.reset_after = float(reset_after)
+
+        self.expires = self._loop.time() + self.reset_after
+
+    def _wake_next(self) -> None:
+        try:
+            future = self._waiters.popleft()
+        except IndexError:
+            return
+        future.set_result(None)
+
+    def _wake(self, count: int = 1) -> None:
+        for _ in range(count):
+            self._wake_next()
+
+    async def acquire(self) -> None:
+        if self.expires is not None and self._loop.time() > self.expires:
+            self.reset()
+
+        while self.remaining <= 0:
+            future = self._loop.create_future()
+            self._waiters.append(future)
+            try:
+                await future
+            except:
+                future.cancel()
+                if self.remaining > 0 and not future.cancelled():
+                    self._wake_next()
+                raise
+
+        self.remaining -= 1
+        self.outgoing += 1
+
+
+    async def __aenter__(self) -> Self:
+        await self.acquire()
         return self
 
-    def defer(self) -> None:
-        self._unlock = False
-
-    def __exit__(
-        self,
-        exc_type: Optional[Type[BE]],
-        exc: Optional[BE],
-        traceback: Optional[TracebackType],
-    ) -> None:
-        if self._unlock:
-            self.lock.release()
-
+    async def __aexit__(self, type: Type[BE], value: BE, traceback: TracebackType) -> None:
+        tokens = self.remaining - self.outgoing - 1
+        if not self._sleeping.locked():
+            if tokens <= 0:
+                async with self._sleeping:
+                    await asyncio.sleep(self.reset_after)
+                self.outgoing -= 1
+                self.reset()
+                self._wake(self.remaining)
+            elif self._waiters:
+                self.outgoing -= 1
+                self._wake(tokens)
+            else:
+                self.outgoing -= 1
+        else:
+            self.outgoing -= 1
 
 # For some reason, the Discord voice websocket expects this header to be
 # completely lowercase while aiohttp respects spec and does it as case-insensitive
@@ -342,7 +419,14 @@ class HTTPClient:
         self.loop: asyncio.AbstractEventLoop = asyncio.get_event_loop() if loop is None else loop
         self.connector: aiohttp.BaseConnector = connector or aiohttp.TCPConnector(limit=0)
         self.__session: aiohttp.ClientSession = MISSING  # filled in static_login
-        self._locks: weakref.WeakValueDictionary = weakref.WeakValueDictionary()
+        
+        # Route Key -> Discord Identifier
+        self._bucket_ids: Dict[RateLimitKey, str] = {}
+        # Discord Identifier -> RateLimitBucket
+        self._buckets: Dict[str, RateLimitBucket] = {}
+        # buckets with unknown discord identifier
+        self._unknown_buckets: Dict[RateLimitKey, RateLimitBucket] = {}
+
         self._global_over: asyncio.Event = asyncio.Event()
         self._global_over.set()
         self.token: Optional[str] = None
@@ -383,15 +467,16 @@ class HTTPClient:
         form: Optional[Iterable[Dict[str, Any]]] = None,
         **kwargs: Any,
     ) -> Any:
-        bucket = route.bucket
+        bucket_key = route.key
         method = route.method
         url = route.url
 
-        lock = self._locks.get(bucket)
-        if lock is None:
-            lock = asyncio.Lock()
-            if bucket is not None:
-                self._locks[bucket] = lock
+        try:
+            bucket_id = self._bucket_ids[bucket_key]
+            bucket = self._buckets[bucket_id]
+        except KeyError:
+            bucket_id = None
+            bucket = self._unknown_buckets[bucket_key] = RateLimitBucket(self.loop)
 
         # header creation
         headers: Dict[str, str] = {
@@ -427,8 +512,7 @@ class HTTPClient:
 
         response: Optional[aiohttp.ClientResponse] = None
         data: Optional[Union[Dict[str, Any], str]] = None
-        await lock.acquire()
-        with MaybeUnlock(lock) as maybe_lock:
+        async with bucket:
             for tries in range(5):
                 if files:
                     for f in files:
@@ -448,14 +532,28 @@ class HTTPClient:
                         # even errors have text involved in them so this is safe to call
                         data = await json_or_text(response)
 
-                        # check if we have rate limit header information
-                        remaining = response.headers.get('X-Ratelimit-Remaining')
-                        if remaining == '0' and response.status != 429:
-                            # we've depleted our current bucket
-                            delta = utils._parse_ratelimit_header(response, use_clock=self.use_clock)
-                            _log.debug('A rate limit bucket has been exhausted (bucket: %s, retry: %s).', bucket, delta)
-                            maybe_lock.defer()
-                            self.loop.call_later(delta, lock.release)
+                        try:
+                            discord_id = response.headers['X-Ratelimit-Bucket']
+                            if bucket_id != discord_id:
+                                if bucket_id is not None:
+                                    fmt = 'A rate limit bucket (%r) has changed hashes: %s -> %s.'
+                                    _log.debug(fmt, bucket, bucket_id, discord_id)
+
+                                    self._bucket_ids[bucket_key] = discord_id
+                                    self._buckets[discord_id] = bucket
+                                    self._buckets.pop(bucket_id, None)
+                                else:
+                                    self._unknown_buckets.pop(bucket_key, None)
+                                    self._bucket_ids[bucket_key] = discord_id
+                                    self._buckets[discord_id] = bucket
+
+                            if response.status != 429:
+                                bucket.update(response.headers, use_clock=self.use_clock)
+                            elif bucket.remaining == 0:
+                                _log.debug('A rate limit bucket has been exhausted (%r).', bucket)
+
+                        except KeyError:
+                            pass
 
                         # the request was successful so just return the text/json
                         if 300 > response.status >= 200:
