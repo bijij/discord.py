@@ -22,10 +22,22 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 """
 
-from typing import List, Optional, TypedDict
-from .activity import Activity
-from .snowflake import Snowflake
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, List, Optional, TypedDict
+
 from .user import User
+
+if TYPE_CHECKING:
+    from .activity import Activity
+    from .snowflake import Snowflake
+
+__all__ = (
+    'Widget',
+    'WidgetChannel',
+    'WidgetMember',
+    'WidgetSettings',
+)
 
 
 class WidgetChannel(TypedDict):

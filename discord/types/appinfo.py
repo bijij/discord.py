@@ -24,11 +24,19 @@ DEALINGS IN THE SOFTWARE.
 
 from __future__ import annotations
 
-from typing import TypedDict, List, Optional
+from typing import TYPE_CHECKING, List, Optional, TypedDict
 
-from .user import User
-from .team import Team
-from .snowflake import Snowflake
+if TYPE_CHECKING:
+    from .snowflake import Snowflake
+    from .team import Team
+    from .user import User
+
+__all__ = (
+    'AppInfo',
+    'BaseAppInfo',
+    'GatewayAppInfo',
+    'PartialAppInfo',
+)
 
 
 class BaseAppInfo(TypedDict):

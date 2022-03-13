@@ -22,21 +22,42 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 """
 
-from typing import List, Literal, Optional, TypedDict
+from __future__ import annotations
 
-from .scheduled_event import GuildScheduledEvent
-from .sticker import GuildSticker
-from .snowflake import Snowflake
-from .channel import GuildChannel, StageInstance
-from .voice import GuildVoiceState
-from .welcome_screen import WelcomeScreen
-from .activity import PartialPresenceUpdate
-from .role import Role
-from .member import Member
-from .emoji import Emoji
-from .user import User
-from .sticker import GuildSticker
-from .threads import Thread
+from typing import TYPE_CHECKING, List, Literal, Optional, TypedDict
+
+if TYPE_CHECKING:
+    from .activity import PartialPresenceUpdate
+    from .channel import GuildChannel, StageInstance
+    from .emoji import Emoji
+    from .member import Member
+    from .role import Role
+    from .scheduled_event import GuildScheduledEvent
+    from .snowflake import Snowflake
+    from .sticker import GuildSticker
+    from .threads import Thread
+    from .user import User
+    from .voice import GuildVoiceState
+    from .welcome_screen import WelcomeScreen
+
+__all__ = (
+    'Ban',
+    'ChannelPositionUpdate',
+    'DefaultMessageNotificationLevel',
+    'ExplicitContentFilterLevel',
+    'Guild',
+    'GuildFeature',
+    'GuildPreview',
+    'GuildPrune',
+    'GuildWithCounts',
+    'InviteGuild',
+    'MFALevel',
+    'NSFWLevel',
+    'PremiumTier',
+    'RolePositionUpdate',
+    'UnavailableGuild',
+    'VerificationLevel',
+)
 
 
 class Ban(TypedDict):

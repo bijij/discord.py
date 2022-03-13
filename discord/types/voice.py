@@ -22,9 +22,23 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 """
 
-from typing import Optional, TypedDict, List, Literal
-from .snowflake import Snowflake
-from .member import MemberWithUser
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, List, Literal, Optional, TypedDict
+
+if TYPE_CHECKING:
+    from .member import MemberWithUser
+    from .snowflake import Snowflake
+
+__all__ = (
+    'GuildVoiceState',
+    'SupportedModes',
+    'VoiceIdentify',
+    'VoiceReady',
+    'VoiceRegion',
+    'VoiceServerUpdate',
+    'VoiceState',
+)
 
 
 SupportedModes = Literal['xsalsa20_poly1305_lite', 'xsalsa20_poly1305_suffix', 'xsalsa20_poly1305']

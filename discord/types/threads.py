@@ -23,9 +23,21 @@ DEALINGS IN THE SOFTWARE.
 """
 
 from __future__ import annotations
-from typing import List, Literal, Optional, TypedDict
 
-from .snowflake import Snowflake
+from typing import TYPE_CHECKING, List, Literal, Optional, TypedDict
+
+if TYPE_CHECKING:
+    from .snowflake import Snowflake
+
+__all__ = (
+    'Thread',
+    'ThreadArchiveDuration',
+    'ThreadMember',
+    'ThreadMetadata',
+    'ThreadPaginationPayload',
+    'ThreadType',
+)
+
 
 ThreadType = Literal[10, 11, 12]
 ThreadArchiveDuration = Literal[60, 1440, 4320, 10080]

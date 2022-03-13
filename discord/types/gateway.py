@@ -22,26 +22,82 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 """
 
-from typing import List, Literal, Optional, TypedDict
+from __future__ import annotations
 
+from typing import TYPE_CHECKING, List, Literal, Optional, TypedDict
 
 from .activity import PartialPresenceUpdate
-from .voice import GuildVoiceState
-from .integration import BaseIntegration, IntegrationApplication
-from .role import Role
-from .channel import ChannelType, StageInstance
-from .interactions import Interaction
-from .invite import InviteTargetType
-from .emoji import Emoji, PartialEmoji
-from .member import MemberWithUser
-from .snowflake import Snowflake
-from .message import Message
-from .sticker import GuildSticker
-from .appinfo import GatewayAppInfo, PartialAppInfo
+from .channel import StageInstance
 from .guild import Guild, UnavailableGuild
-from .user import User
-from .threads import Thread, ThreadMember
+from .integration import BaseIntegration
+from .interactions import Interaction
+from .member import MemberWithUser
+from .message import Message
 from .scheduled_event import GuildScheduledEvent
+from .threads import Thread, ThreadMember
+from .user import User
+from .voice import GuildVoiceState
+
+if TYPE_CHECKING:
+    from .appinfo import GatewayAppInfo, PartialAppInfo
+    from .channel import ChannelType
+    from .emoji import Emoji, PartialEmoji
+    from .integration import IntegrationApplication
+    from .invite import InviteTargetType
+    from .role import Role
+    from .snowflake import Snowflake
+    from .sticker import GuildSticker
+
+__all__ = (
+    'ChannelCreateEvent',
+    'ChannelDeleteEvent',
+    'ChannelPinsUpdateEvent',
+    'ChannelUpdateEvent',
+    'Gateway',
+    'GatewayBot',
+    'GuildBanAddEvent',
+    'GuildBanRemoveEvent',
+    'GuildEmojisUpdateEvent',
+    'GuildIntegrationsUpdateEvent',
+    'GuildMemberAddEvent',
+    'GuildMemberRemoveEvent',
+    'GuildMemberUpdateEvent',
+    'GuildMembersChunkEvent',
+    'GuildRoleCreateEvent',
+    'GuildRoleDeleteEvent',
+    'GuildRoleUpdateEvent',
+    'GuildScheduledEventCreateEvent',
+    'GuildScheduledEventDeleteEvent',
+    'GuildScheduledEventUpdateEvent',
+    'GuildScheduledEventUserAdd',
+    'GuildScheduledEventUserRemove',
+    'GuildStickersUpdateEvent',
+    'IntegrationCreateEvent',
+    'IntegrationDeleteEvent',
+    'IntegrationUpdateEvent',
+    'InteractionCreateEvent',
+    'InviteCreateEvent',
+    'InviteDeleteEvent',
+    'MessageDeleteBulkEvent',
+    'MessageDeleteEvent',
+    'MessageReactionAddEvent',
+    'MessageReactionRemoveAllEvent',
+    'MessageReactionRemoveEmojiEvent',
+    'MessageReactionRemoveEvent',
+    'MessageUpdateEvent',
+    'ReadyEvent',
+    'ResumedEvent',
+    'SessionStartLimit',
+    'ShardInfo',
+    'ThreadCreateEvent',
+    'ThreadDeleteEvent',
+    'ThreadListSyncEvent',
+    'ThreadMemberUpdate',
+    'ThreadMembersUpdate',
+    'TypingStartEvent',
+    'VoiceServerUpdateEvent',
+    'WebhooksUpdateEvent',
+)
 
 
 class SessionStartLimit(TypedDict):

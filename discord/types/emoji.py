@@ -22,9 +22,18 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 """
 
-from typing import Optional, TypedDict
-from .snowflake import Snowflake, SnowflakeList
-from .user import User
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Optional, TypedDict
+
+if TYPE_CHECKING:
+    from .snowflake import Snowflake, SnowflakeList
+    from .user import User
+
+__all__ = (
+    'Emoji',
+    'PartialEmoji',
+)
 
 
 class PartialEmoji(TypedDict):
@@ -39,8 +48,3 @@ class Emoji(PartialEmoji, total=False):
     managed: bool
     animated: bool
     available: bool
-
-
-class EditEmoji(TypedDict):
-    name: str
-    roles: Optional[SnowflakeList]

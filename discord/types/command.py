@@ -24,10 +24,25 @@ DEALINGS IN THE SOFTWARE.
 
 from __future__ import annotations
 
-from typing import List, Literal, TypedDict, Union
+from typing import TYPE_CHECKING, List, Literal, TypedDict, Union
 
-from .channel import ChannelType
-from .snowflake import Snowflake
+if TYPE_CHECKING:
+    from .channel import ChannelType
+    from .snowflake import Snowflake
+
+__all__ = (
+    'ApplicationCommand',
+    'ApplicationCommandOption',
+    'ApplicationCommandOptionChoice',
+    'ApplicationCommandOptionType',
+    'ApplicationCommandPermissionType',
+    'ApplicationCommandPermissions',
+    'ApplicationCommandType',
+    'GlobalApplicationCommand',
+    'GuildApplicationCommand',
+    'GuildApplicationCommandPermissions',
+)
+
 
 ApplicationCommandType = Literal[1, 2, 3]
 ApplicationCommandOptionType = Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]

@@ -24,9 +24,23 @@ DEALINGS IN THE SOFTWARE.
 
 from __future__ import annotations
 
-from typing import Literal, Optional, TypedDict, Union
-from .snowflake import Snowflake
-from .user import User
+from typing import TYPE_CHECKING, Literal, Optional, TypedDict, Union
+
+if TYPE_CHECKING:
+    from .snowflake import Snowflake
+    from .user import User
+
+__all__ = (
+    'BaseIntegration',
+    'BotIntegration',
+    'Integration',
+    'IntegrationAccount',
+    'IntegrationApplication',
+    'IntegrationExpireBehavior',
+    'IntegrationType',
+    'PartialIntegration',
+    'StreamIntegration',
+)
 
 
 class _IntegrationApplicationOptional(TypedDict, total=False):

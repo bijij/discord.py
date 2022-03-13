@@ -22,8 +22,18 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 """
 
-from .snowflake import Snowflake
-from typing import Literal, Optional, TypedDict
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Literal, Optional, TypedDict
+
+if TYPE_CHECKING:
+    from .snowflake import Snowflake
+
+__all__ = (
+    'PartialUser',
+    'PremiumType',
+    'User',
+)
 
 
 class PartialUser(TypedDict):

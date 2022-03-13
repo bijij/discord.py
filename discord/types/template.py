@@ -24,15 +24,16 @@ DEALINGS IN THE SOFTWARE.
 
 from __future__ import annotations
 
-from typing import Optional, TypedDict
-from .snowflake import Snowflake
-from .user import User
-from .guild import Guild
+from typing import TYPE_CHECKING, Optional, TypedDict
 
+if TYPE_CHECKING:
+    from .guild import Guild
+    from .snowflake import Snowflake
+    from .user import User
 
-class CreateTemplate(TypedDict):
-    name: str
-    icon: Optional[bytes]
+__all__ = (
+    'Template',
+)
 
 
 class Template(TypedDict):

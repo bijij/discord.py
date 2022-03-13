@@ -24,15 +24,29 @@ DEALINGS IN THE SOFTWARE.
 
 from __future__ import annotations
 
-from typing import Literal, Optional, TypedDict, Union
+from typing import TYPE_CHECKING, Literal, Optional, TypedDict, Union
 
+from .guild import _GuildPreviewUnique
 
-from .scheduled_event import GuildScheduledEvent
-from .snowflake import Snowflake
-from .guild import InviteGuild, _GuildPreviewUnique
-from .channel import PartialChannel
-from .user import PartialUser
-from .appinfo import PartialAppInfo
+if TYPE_CHECKING:
+    from .appinfo import PartialAppInfo
+    from .channel import PartialChannel
+    from .guild import InviteGuild
+    from .scheduled_event import GuildScheduledEvent
+    from .snowflake import Snowflake
+    from .user import PartialUser
+
+__all__ = (
+    'GatewayInvite',
+    'GatewayInviteCreate',
+    'GatewayInviteDelete',
+    'IncompleteInvite',
+    'Invite',
+    'InviteTargetType',
+    'InviteWithCounts',
+    'VanityInvite',
+)
+
 
 InviteTargetType = Literal[1, 2]
 

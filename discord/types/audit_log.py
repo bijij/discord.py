@@ -24,66 +24,125 @@ DEALINGS IN THE SOFTWARE.
 
 from __future__ import annotations
 
-from typing import List, Literal, Optional, TypedDict, Union
+from typing import TYPE_CHECKING, List, Literal, Optional, TypedDict, Union
 
-from .webhook import Webhook
-from .guild import MFALevel, VerificationLevel, ExplicitContentFilterLevel, DefaultMessageNotificationLevel
-from .integration import IntegrationExpireBehavior, PartialIntegration
-from .user import User
-from .scheduled_event import EntityType, EventStatus, GuildScheduledEvent
-from .snowflake import Snowflake
-from .role import Role
-from .channel import ChannelType, PrivacyLevel, VideoQualityMode, PermissionOverwrite
-from .threads import Thread
+if TYPE_CHECKING:
+    from .channel import ChannelType, PermissionOverwrite, PrivacyLevel, VideoQualityMode
+    from .guild import DefaultMessageNotificationLevel, ExplicitContentFilterLevel, MFALevel, VerificationLevel
+    from .integration import IntegrationExpireBehavior, PartialIntegration
+    from .role import Role
+    from .scheduled_event import EntityType, EventStatus, GuildScheduledEvent
+    from .snowflake import Snowflake
+    from .threads import Thread
+    from .user import User
+    from .webhook import Webhook
 
-AuditLogEvent = Literal[
-    1,
-    10,
-    11,
-    12,
-    13,
-    14,
-    15,
-    20,
-    21,
-    22,
-    23,
-    24,
-    25,
-    26,
-    27,
-    28,
-    30,
-    31,
-    32,
-    40,
-    41,
-    42,
-    50,
-    51,
-    52,
-    60,
-    61,
-    62,
-    72,
-    73,
-    74,
-    75,
-    80,
-    81,
-    82,
-    83,
-    84,
-    85,
-    90,
-    91,
-    92,
-    100,
-    101,
-    102,
-    110,
-    111,
-    112,
+__all__ = (
+    'AuditEntryInfo',
+    'AuditLog',
+    'AuditLogChange',
+    'AuditLogEntry',
+    'AuditLogEvent',
+)
+
+
+_GuildUpdate = Literal[1]
+_ChannelCreate = Literal[10]
+_ChannelUpdate = Literal[11]
+_ChannelDelete = Literal[12]
+_ChannelOverwriteCreate = Literal[13]
+_ChannelOverwriteUpdate = Literal[14]
+_ChannelOverwriteDelete = Literal[15]
+_MemberKick = Literal[20]
+_MemberPrune = Literal[21]
+_MemberBanAdd = Literal[22]
+_MemberBanRemove = Literal[23]
+_MemberUpdate = Literal[24]
+_MemberRoleUpdate = Literal[25]
+_MemberMove = Literal[26]
+_MemberDisconnect = Literal[27]
+_BotAdd = Literal[28]
+_RoleCreate = Literal[30]
+_RoleUpdate = Literal[31]
+_RoleDelete = Literal[32]
+_InviteCreate = Literal[40]
+_InviteUpdate = Literal[41]
+_InviteDelete = Literal[42]
+_WebhookCreate = Literal[50]
+_WebhookUpdate = Literal[51]
+_WebhookDelete = Literal[52]
+_EmojiCreate = Literal[60]
+_EmojiUpdate = Literal[61]
+_EmojiDelete = Literal[62]
+_MessageDelete = Literal[72]
+_MessageBulkDelete = Literal[73]
+_MessagePin = Literal[74]
+_MessageUnpin = Literal[75]
+_IntegrationCreate = Literal[80]
+_IntegrationUpdate = Literal[81]
+_IntegrationDelete = Literal[82]
+_StageInstanceCreate = Literal[83]
+_StageInstanceUpdate = Literal[84]
+_StageInstanceDelete = Literal[85]
+_StickerCreate = Literal[90]
+_StickerUpdate = Literal[91]
+_StickerDelete = Literal[92]
+_GuildScheduledEventCreate = Literal[100]
+_GuildScheduledEventUpdate = Literal[101]
+_GuildScheduledEventDelete = Literal[102]
+_ThreadCreate = Literal[110]
+_ThreadUpdate = Literal[111]
+_ThreadDelete = Literal[112]
+
+
+AuditLogEvent = Union[
+    _GuildUpdate,
+    _ChannelCreate,
+    _ChannelUpdate,
+    _ChannelDelete,
+    _ChannelOverwriteCreate,
+    _ChannelOverwriteUpdate,
+    _ChannelOverwriteDelete,
+    _MemberKick,
+    _MemberPrune,
+    _MemberBanAdd,
+    _MemberBanRemove,
+    _MemberUpdate,
+    _MemberRoleUpdate,
+    _MemberMove,
+    _MemberDisconnect,
+    _BotAdd,
+    _RoleCreate,
+    _RoleUpdate,
+    _RoleDelete,
+    _InviteCreate,
+    _InviteUpdate,
+    _InviteDelete,
+    _WebhookCreate,
+    _WebhookUpdate,
+    _WebhookDelete,
+    _EmojiCreate,
+    _EmojiUpdate,
+    _EmojiDelete,
+    _MessageDelete,
+    _MessageBulkDelete,
+    _MessagePin,
+    _MessageUnpin,
+    _IntegrationCreate,
+    _IntegrationUpdate,
+    _IntegrationDelete,
+    _StageInstanceCreate,
+    _StageInstanceUpdate,
+    _StageInstanceDelete,
+    _StickerCreate,
+    _StickerUpdate,
+    _StickerDelete,
+    _GuildScheduledEventCreate,
+    _GuildScheduledEventUpdate,
+    _GuildScheduledEventDelete,
+    _ThreadCreate,
+    _ThreadUpdate,
+    _ThreadDelete,
 ]
 
 
@@ -262,7 +321,7 @@ AuditLogChange = Union[
 ]
 
 
-class AuditEntryInfo(TypedDict):
+class AuditEntryInfo(TypedDict, total=False):
     delete_member_days: str
     members_removed: str
     channel_id: Snowflake

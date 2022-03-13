@@ -24,8 +24,15 @@ DEALINGS IN THE SOFTWARE.
 
 from __future__ import annotations
 
-from typing import List, Optional, TypedDict
-from .snowflake import Snowflake
+from typing import TYPE_CHECKING, List, Optional, TypedDict
+
+if TYPE_CHECKING:
+    from .snowflake import Snowflake
+
+__all__ = (
+    'WelcomeScreen',
+    'WelcomeScreenChannel',
+)
 
 
 class WelcomeScreen(TypedDict):

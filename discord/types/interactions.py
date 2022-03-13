@@ -26,17 +26,42 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Dict, List, Literal, TypedDict, Union
 
-
-from .channel import ChannelTypeWithoutThread, ThreadMetadata
-from .threads import ThreadType
-from .member import Member
-from .message import Attachment
-from .role import Role
-from .snowflake import Snowflake
-from .user import User
-
 if TYPE_CHECKING:
-    from .message import Message
+    from .channel import ChannelTypeWithoutThread
+    from .member import Member
+    from .message import Attachment, Message
+    from .role import Role
+    from .snowflake import Snowflake
+    from .threads import ThreadMetadata, ThreadType
+    from .user import User
+
+
+__all__ = (
+    'ApplicationCommandInteraction',
+    'ApplicationCommandInteractionData',
+    'ApplicationCommandInteractionDataOption',
+    'ButtonMessageComponentInteractionData',
+    'ChatInputApplicationCommandInteractionData',
+    'Interaction',
+    'InteractionData',
+    'InteractionType',
+    'MessageApplicationCommandInteractionData',
+    'MessageComponentInteraction',
+    'MessageComponentInteractionData',
+    'MessageInteraction',
+    'ModalSubmitActionRowInteractionData',
+    'ModalSubmitComponentInteractionData',
+    'ModalSubmitComponentItemInteractionData',
+    'ModalSubmitInteraction',
+    'ModalSubmitInteractionData',
+    'ModalSubmitTextInputInteractionData',
+    'PartialChannel',
+    'PartialThread',
+    'PingInteraction',
+    'ResolvedData',
+    'SelectMessageComponentInteractionData',
+    'UserApplicationCommandInteractionData',
+)
 
 
 InteractionType = Literal[1, 2, 3, 4, 5]

@@ -22,10 +22,39 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 """
 
-from typing import List, Literal, Optional, TypedDict, Union
-from .user import PartialUser
-from .snowflake import Snowflake
-from .threads import ThreadMetadata, ThreadMember, ThreadArchiveDuration, ThreadType
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, List, Literal, Optional, TypedDict, Union
+
+from .threads import Thread, ThreadType
+
+if TYPE_CHECKING:
+    from .snowflake import Snowflake
+    from .threads import ThreadArchiveDuration
+    from .user import PartialUser
+
+__all__ = (
+    'CategoryChannel',
+    'Channel',
+    'ChannelType',
+    'ChannelTypeWithoutThread',
+    'ChannelWithoutThread',
+    'DMChannel',
+    'GroupDMChannel',
+    'GuildChannel',
+    'GuildChannelWithoutThread',
+    'NewsChannel',
+    'OverwriteType',
+    'PartialChannel',
+    'PermissionOverwrite',
+    'PrivacyLevel',
+    'StageChannel',
+    'StageInstance',
+    'StoreChannel',
+    'TextChannel',
+    'VideoQualityMode',
+    'VoiceChannel',
+)
 
 
 OverwriteType = Literal[0, 1]
@@ -108,28 +137,8 @@ class StageChannel(_BaseGuildChannel, _StageChannelOptional):
     user_limit: int
 
 
-class _ThreadChannelOptional(TypedDict, total=False):
-    member: ThreadMember
-    owner_id: Snowflake
-    rate_limit_per_user: int
-    last_message_id: Optional[Snowflake]
-    last_pin_timestamp: str
-
-
-class ThreadChannel(_BaseChannel, _ThreadChannelOptional):
-    type: Literal[10, 11, 12]
-    guild_id: Snowflake
-    parent_id: Snowflake
-    owner_id: Snowflake
-    nsfw: bool
-    last_message_id: Optional[Snowflake]
-    rate_limit_per_user: int
-    message_count: int
-    member_count: int
-    thread_metadata: ThreadMetadata
-
-
-GuildChannel = Union[TextChannel, NewsChannel, VoiceChannel, CategoryChannel, StoreChannel, StageChannel, ThreadChannel]
+GuildChannelWithoutThread = Union[TextChannel, NewsChannel, VoiceChannel, CategoryChannel, StoreChannel, StageChannel]
+GuildChannel = Union[GuildChannelWithoutThread, Thread]
 
 
 class DMChannel(_BaseChannel):
@@ -144,7 +153,8 @@ class GroupDMChannel(_BaseChannel):
     owner_id: Snowflake
 
 
-Channel = Union[GuildChannel, DMChannel, GroupDMChannel]
+ChannelWithoutThread = Union[GuildChannelWithoutThread, DMChannel, GroupDMChannel]
+Channel = Union[ChannelWithoutThread, Thread]
 
 PrivacyLevel = Literal[2]
 

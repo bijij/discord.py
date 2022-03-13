@@ -24,10 +24,26 @@ DEALINGS IN THE SOFTWARE.
 
 from __future__ import annotations
 
-from typing import List, Literal, Optional, TypedDict
-from .user import User
-from .snowflake import Snowflake
+from typing import TYPE_CHECKING, List, Literal, Optional, TypedDict
 
+if TYPE_CHECKING:
+    from .snowflake import Snowflake
+    from .user import User
+
+__all__ = (
+    'Activity',
+    'ActivityAssets',
+    'ActivityButton',
+    'ActivityEmoji',
+    'ActivityParty',
+    'ActivitySecrets',
+    'ActivityTimestamps',
+    'ActivityType',
+    'ClientStatus',
+    'PartialPresenceUpdate',
+    'SendableActivity',
+    'StatusType',
+)
 
 StatusType = Literal['idle', 'dnd', 'online', 'offline']
 

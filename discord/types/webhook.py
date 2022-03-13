@@ -23,10 +23,21 @@ DEALINGS IN THE SOFTWARE.
 """
 
 from __future__ import annotations
-from typing import Literal, Optional, TypedDict
-from .snowflake import Snowflake
-from .user import User
-from .channel import PartialChannel
+
+from typing import TYPE_CHECKING, Literal, Optional, TypedDict
+
+if TYPE_CHECKING:
+    from .channel import PartialChannel
+    from .snowflake import Snowflake
+    from .user import User
+
+__all__ = (
+    'FollowerWebhook',
+    'PartialWebhook',
+    'SourceGuild',
+    'Webhook',
+    'WebhookType',
+)
 
 
 class SourceGuild(TypedDict):

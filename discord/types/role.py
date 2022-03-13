@@ -24,8 +24,15 @@ DEALINGS IN THE SOFTWARE.
 
 from __future__ import annotations
 
-from typing import TypedDict, Optional
-from .snowflake import Snowflake
+from typing import TYPE_CHECKING, Optional, TypedDict
+
+if TYPE_CHECKING:
+    from .snowflake import Snowflake
+
+__all__ = (
+    'Role',
+    'RoleTags',
+)
 
 
 class _RoleOptional(TypedDict, total=False):

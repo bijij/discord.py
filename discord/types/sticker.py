@@ -24,9 +24,24 @@ DEALINGS IN THE SOFTWARE.
 
 from __future__ import annotations
 
-from typing import List, Literal, TypedDict, Union, Optional
-from .snowflake import Snowflake
-from .user import User
+from typing import TYPE_CHECKING, List, Literal, Optional, TypedDict, Union
+
+if TYPE_CHECKING:
+    from .snowflake import Snowflake
+    from .user import User
+
+__all__ = (
+    'BaseSticker',
+    'CreateGuildSticker',
+    'GuildSticker',
+    'ListPremiumStickerPacks',
+    'StandardSticker',
+    'Sticker',
+    'StickerFormatType',
+    'StickerItem',
+    'StickerPack',
+)
+
 
 StickerFormatType = Literal[1, 2, 3]
 
@@ -81,12 +96,6 @@ class _CreateGuildStickerOptional(TypedDict, total=False):
 class CreateGuildSticker(_CreateGuildStickerOptional):
     name: str
     tags: str
-
-
-class EditGuildSticker(TypedDict, total=False):
-    name: str
-    tags: str
-    description: str
 
 
 class ListPremiumStickerPacks(TypedDict):

@@ -22,7 +22,21 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 """
 
+from __future__ import annotations
+
 from typing import List, Literal, TypedDict
+
+__all__ = (
+    'Embed',
+    'EmbedAuthor',
+    'EmbedField',
+    'EmbedFooter',
+    'EmbedImage',
+    'EmbedProvider',
+    'EmbedThumbnail',
+    'EmbedType',
+    'EmbedVideo',
+)
 
 
 class _EmbedFooterOptional(TypedDict, total=False):
