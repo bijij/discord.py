@@ -68,6 +68,7 @@ from .interactions import *
 from .components import *
 from .threads import *
 from .automod import *
+from .http import *
 
 
 class VersionInfo(NamedTuple):

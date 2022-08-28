@@ -73,6 +73,7 @@ from .ui.view import View
 from .stage_instance import StageInstance
 from .threads import Thread
 from .sticker import GuildSticker, StandardSticker, StickerPack, _sticker_factory
+from .interactions import WebInteraction
 
 if TYPE_CHECKING:
     from typing_extensions import Self
@@ -84,6 +85,15 @@ if TYPE_CHECKING:
     from .message import Message
     from .member import Member
     from .voice_client import VoiceProtocol
+
+has_nacl: bool
+
+try:
+    from nacl.signing import VerifyKey  # type: ignore
+
+    has_nacl = True
+except ImportError:
+    has_nacl = False
 
 # fmt: off
 __all__ = (
@@ -212,6 +222,11 @@ class Client:
         set to is ``30.0`` seconds.
 
         .. versionadded:: 2.0
+    public_key: :class:`str`
+        The bot's application public key. This is used for verifying the signature of outgoing-webhook interaction
+        requests.
+
+        .. versionadded:: 2.1
 
     Attributes
     -----------
@@ -257,10 +272,11 @@ class Client:
         self._application: Optional[AppInfo] = None
         self._connection._get_websocket = self._get_websocket
         self._connection._get_client = lambda: self
+        self._public_key: str = options.pop('public_key', MISSING)
 
         if VoiceClient.warn_nacl:
             VoiceClient.warn_nacl = False
-            _log.warning("PyNaCl is not installed, voice will NOT be supported")
+            _log.warning("PyNaCl is not installed, voice and outgoing-webhook interactions will NOT be supported")
 
     async def __aenter__(self) -> Self:
         await self._async_setup_hook()
@@ -1978,3 +1994,38 @@ class Client:
         .. versionadded:: 2.0
         """
         return self._connection.persistent_views
+
+    def parse_interaction(self, signature: str, timestamp: str, body: str) -> WebInteraction:
+        """Parses an interaction recieved via outgoing webhook.
+
+        .. versionadded:: 2.1
+
+        Parameters
+        ------------
+        signature: :class:`str`
+            The request signature provided by discord in the ``X-Signature-Ed25519`` header.
+        timestamp: :class:`str`
+            The timestamp provided by discord in the `` header.
+        body: :class:`str`
+            The interaction request body.
+
+        Raises
+        --------
+        ValueError:
+            The request signature was not 64 bytes long.
+        nacl.exceptions.BadSignatureError
+            The request signature was invalid.
+
+        Returns
+        ---------
+        :class:`.WebInteraction`
+        """
+        if self._public_key is MISSING:
+            raise RuntimeError("Application public key not set, cannot verify request signatures.")
+        if not has_nacl:
+            raise RuntimeError("PyNaCl library needed in order to verify request signatures.")
+
+        verify_key = VerifyKey(bytes.fromhex(self._public_key))
+        verify_key.verify(f'{timestamp}{body}'.encode(), bytes.fromhex(signature))
+
+        return WebInteraction(data=utils._from_json(body), state=self._connection)

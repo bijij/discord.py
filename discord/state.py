@@ -61,7 +61,7 @@ from .channel import _channel_factory
 from .raw_models import *
 from .member import Member
 from .role import Role
-from .enums import ChannelType, try_enum, Status
+from .enums import ChannelType, InteractionType, try_enum, Status
 from . import utils
 from .flags import ApplicationFlags, Intents, MemberCacheFlags
 from .object import Object
@@ -89,6 +89,7 @@ if TYPE_CHECKING:
     from .types.snowflake import Snowflake
     from .types.activity import Activity as ActivityPayload
     from .types.channel import DMChannel as DMChannelPayload
+    from .types.interactions import InteractionData as InteractionDataPayload
     from .types.user import User as UserPayload, PartialUser as PartialUserPayload
     from .types.emoji import Emoji as EmojiPayload, PartialEmoji as PartialEmojiPayload
     from .types.sticker import GuildSticker as GuildStickerPayload
@@ -509,6 +510,26 @@ class ConnectionState:
         ws = self._get_websocket(guild_id)  # This is ignored upstream
         await ws.request_chunks(guild_id, query=query, limit=limit, presences=presences, nonce=nonce)
 
+    def _handle_interaction(self, interaction: Interaction, data: Optional[InteractionDataPayload]) -> None:
+        if interaction._handled:
+            raise RuntimeError(f'Interaction {interaction} already handled.')
+
+        if interaction.type is InteractionType.ping:
+            asyncio.create_task(interaction.response.pong())
+        elif interaction.type in (InteractionType.application_command, InteractionType.autocomplete) and self._command_tree:
+            self._command_tree._from_interaction(interaction)
+        elif interaction.type == InteractionType.component:
+            # These keys are always there for this interaction type
+            custom_id = data['custom_id']  # type: ignore
+            component_type = data['component_type']  # type: ignore
+            self._view_store.dispatch_view(component_type, custom_id, interaction)
+        elif interaction.type == InteractionType.modal_submit:
+            # These keys are always there for this interaction type
+            custom_id = data['custom_id']  # type: ignore
+            components = data['components']  # type: ignore
+            self._view_store.dispatch_modal(custom_id, interaction, components)
+        interaction._handled = True
+
     async def query_members(
         self, guild: Guild, query: Optional[str], limit: int, user_ids: Optional[List[int]], cache: bool, presences: bool
     ) -> List[Member]:
@@ -735,20 +756,7 @@ class ConnectionState:
 
     def parse_interaction_create(self, data: gw.InteractionCreateEvent) -> None:
         interaction = Interaction(data=data, state=self)
-        if data['type'] in (2, 4) and self._command_tree:  # application command and auto complete
-            self._command_tree._from_interaction(interaction)
-        elif data['type'] == 3:  # interaction component
-            # These keys are always there for this interaction type
-            inner_data = data['data']
-            custom_id = inner_data['custom_id']
-            component_type = inner_data['component_type']
-            self._view_store.dispatch_view(component_type, custom_id, interaction)
-        elif data['type'] == 5:  # modal submit
-            # These keys are always there for this interaction type
-            inner_data = data['data']
-            custom_id = inner_data['custom_id']
-            components = inner_data['components']
-            self._view_store.dispatch_modal(custom_id, interaction, components)
+        self._handle_interaction(interaction=interaction, data=interaction.data)
         self.dispatch('interaction', interaction)
 
     def parse_presence_update(self, data: gw.PresenceUpdateEvent) -> None:

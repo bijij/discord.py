@@ -25,7 +25,7 @@ DEALINGS IN THE SOFTWARE.
 """
 
 from __future__ import annotations
-from typing import Any, Dict, Optional, TYPE_CHECKING, Sequence, Tuple, Union
+from typing import Any, Dict, Generic, Optional, TYPE_CHECKING, Sequence, Tuple, TypeVar, Union
 import asyncio
 import datetime
 
@@ -39,7 +39,7 @@ from .user import User
 from .member import Member
 from .message import Message, Attachment
 from .permissions import Permissions
-from .http import handle_message_parameters
+from .http import MultipartParameters, handle_message_parameters
 from .webhook.async_ import async_context, Webhook, interaction_response_params, interaction_message_response_params
 from .app_commands.namespace import Namespace
 
@@ -47,6 +47,8 @@ __all__ = (
     'Interaction',
     'InteractionMessage',
     'InteractionResponse',
+    'WebInteraction',
+    'WebInteractionResponse',
 )
 
 if TYPE_CHECKING:
@@ -77,6 +79,8 @@ if TYPE_CHECKING:
     ]
 
 MISSING: Any = utils.MISSING
+
+InteractionT = TypeVar('InteractionT', 'Interaction', 'WebInteraction')
 
 
 class Interaction:
@@ -143,6 +147,7 @@ class Interaction:
         '_session',
         '_baton',
         '_original_response',
+        '_handled',
         '_cs_response',
         '_cs_followup',
         '_cs_channel',
@@ -160,6 +165,7 @@ class Interaction:
         self._baton: Any = MISSING
         self.extras: Dict[Any, Any] = {}
         self.command_failed: bool = False
+        self._handled: bool = False
         self._from_data(data)
 
     def _from_data(self, data: InteractionPayload):
@@ -504,21 +510,30 @@ class Interaction:
         )
 
 
-class InteractionResponse:
-    """Represents a Discord interaction response.
+class WebInteraction(Interaction):
+    @utils.cached_slot_property('_cs_response')
+    def response(self) -> WebInteractionResponse:
+        """:class:`WebInteractionResponse`: Returns an object responsible for handling responding to the interaction.
 
-    This type can be accessed through :attr:`Interaction.response`.
+        A response can only be done once. If secondary messages need to be sent, consider using :attr:`followup`
+        instead.
+        """
+        return WebInteractionResponse(self)
 
-    .. versionadded:: 2.0
-    """
+    def handle(self) -> None:
+        """It does something I swear."""
+        self._state._handle_interaction(interaction=self, data=self.data)
+
+
+class _BaseInteractionResponse(Generic[InteractionT]):
 
     __slots__: Tuple[str, ...] = (
         '_response_type',
         '_parent',
     )
 
-    def __init__(self, parent: Interaction):
-        self._parent: Interaction = parent
+    def __init__(self, parent: InteractionT):
+        self._parent: InteractionT = parent
         self._response_type: Optional[InteractionResponseType] = None
 
     def is_done(self) -> bool:
@@ -527,6 +542,9 @@ class InteractionResponse:
         An interaction can only be responded to once.
         """
         return self._response_type is not None
+
+    async def _create_response(self, response_type: InteractionResponseType, params: MultipartParameters) -> None:
+        raise NotImplementedError
 
     @property
     def type(self) -> Optional[InteractionResponseType]:
@@ -569,35 +587,27 @@ class InteractionResponse:
         if self._response_type:
             raise InteractionResponded(self._parent)
 
-        defer_type: int = 0
+        response_type = None
         data: Optional[Dict[str, Any]] = None
         parent = self._parent
         if parent.type is InteractionType.component or parent.type is InteractionType.modal_submit:
-            defer_type = (
-                InteractionResponseType.deferred_channel_message.value
+            response_type = (
+                InteractionResponseType.deferred_channel_message
                 if thinking
-                else InteractionResponseType.deferred_message_update.value
+                else InteractionResponseType.deferred_message_update
             )
             if thinking and ephemeral:
                 data = {'flags': 64}
         elif parent.type is InteractionType.application_command:
-            defer_type = InteractionResponseType.deferred_channel_message.value
+            response_type = InteractionResponseType.deferred_channel_message
             if ephemeral:
                 data = {'flags': 64}
 
-        if defer_type:
-            adapter = async_context.get()
-            params = interaction_response_params(type=defer_type, data=data)
-            http = parent._state.http
-            await adapter.create_interaction_response(
-                parent.id,
-                parent.token,
-                session=parent._session,
-                proxy=http.proxy,
-                proxy_auth=http.proxy_auth,
-                params=params,
-            )
-            self._response_type = InteractionResponseType(defer_type)
+        if response_type is None:
+            return
+
+        params = interaction_response_params(response_type.value, data)
+        await self._create_response(InteractionResponseType(response_type), params)
 
     async def pong(self) -> None:
         """|coro|
@@ -616,20 +626,13 @@ class InteractionResponse:
         if self._response_type:
             raise InteractionResponded(self._parent)
 
-        parent = self._parent
-        if parent.type is InteractionType.ping:
-            adapter = async_context.get()
-            params = interaction_response_params(InteractionResponseType.pong.value)
-            http = parent._state.http
-            await adapter.create_interaction_response(
-                parent.id,
-                parent.token,
-                session=parent._session,
-                proxy=http.proxy,
-                proxy_auth=http.proxy_auth,
-                params=params,
-            )
-            self._response_type = InteractionResponseType.pong
+        if self._parent.type is not InteractionType.ping:
+            return
+
+        response_type = InteractionResponseType.pong
+        params = interaction_response_params(response_type.value)
+
+        await self._create_response(response_type, params)
 
     async def send_message(
         self,
@@ -699,9 +702,10 @@ class InteractionResponse:
             flags = MISSING
 
         parent = self._parent
-        adapter = async_context.get()
+
+        response_type = InteractionResponseType.channel_message
         params = interaction_message_response_params(
-            type=InteractionResponseType.channel_message.value,
+            type=response_type.value,
             content=content,
             tts=tts,
             embeds=embeds,
@@ -714,26 +718,11 @@ class InteractionResponse:
             view=view,
         )
 
-        http = parent._state.http
-        await adapter.create_interaction_response(
-            parent.id,
-            parent.token,
-            session=parent._session,
-            proxy=http.proxy,
-            proxy_auth=http.proxy_auth,
-            params=params,
-        )
+        await self._create_response(response_type, params)
 
         if view is not MISSING:
             if ephemeral and view.timeout is None:
                 view.timeout = 15 * 60.0
-
-            # If the interaction type isn't an application command then there's no way
-            # to obtain this interaction_id again, so just default to None
-            entity_id = parent.id if parent.type is InteractionType.application_command else None
-            self._parent._state.store_view(view, entity_id)
-
-        self._response_type = InteractionResponseType.channel_message
 
     async def edit_message(
         self,
@@ -783,22 +772,17 @@ class InteractionResponse:
         InteractionResponded
             This interaction has already been responded to before.
         """
+
         if self._response_type:
             raise InteractionResponded(self._parent)
 
         parent = self._parent
-        msg = parent.message
-        state = parent._state
-        message_id = msg.id if msg else None
         if parent.type not in (InteractionType.component, InteractionType.modal_submit):
             return
 
-        if view is not MISSING and message_id is not None:
-            state.prevent_view_updates_for(message_id)
-
-        adapter = async_context.get()
+        response_type = InteractionResponseType.message_update
         params = interaction_message_response_params(
-            type=InteractionResponseType.message_update.value,
+            type=response_type.value,
             content=content,
             embed=embed,
             embeds=embeds,
@@ -808,20 +792,18 @@ class InteractionResponse:
             allowed_mentions=allowed_mentions,
         )
 
-        http = parent._state.http
-        await adapter.create_interaction_response(
-            parent.id,
-            parent.token,
-            session=parent._session,
-            proxy=http.proxy,
-            proxy_auth=http.proxy_auth,
-            params=params,
-        )
+        parent = self._parent
+        msg = parent.message
+        state = parent._state
+        message_id = msg.id if msg else None
+
+        if view is not MISSING and message_id is not None:
+            state.prevent_view_updates_for(message_id)
+
+        await self._create_response(response_type, params)
 
         if view and not view.is_finished():
             state.store_view(view, message_id)
-
-        self._response_type = InteractionResponseType.message_update
 
     async def send_modal(self, modal: Modal, /) -> None:
         """|coro|
@@ -843,23 +825,12 @@ class InteractionResponse:
         if self._response_type:
             raise InteractionResponded(self._parent)
 
-        parent = self._parent
+        response_type = InteractionResponseType.modal
+        params = interaction_response_params(response_type.value, modal.to_dict())
 
-        adapter = async_context.get()
-        http = parent._state.http
-
-        params = interaction_response_params(InteractionResponseType.modal.value, modal.to_dict())
-        await adapter.create_interaction_response(
-            parent.id,
-            parent.token,
-            session=parent._session,
-            proxy=http.proxy,
-            proxy_auth=http.proxy_auth,
-            params=params,
-        )
+        await self._create_response(response_type, params)
 
         self._parent._state.store_view(modal)
-        self._response_type = InteractionResponseType.modal
 
     async def autocomplete(self, choices: Sequence[Choice[ChoiceT]]) -> None:
         """|coro|
@@ -894,23 +865,72 @@ class InteractionResponse:
                 'choices': [option.to_dict() for option in choices],
             }
 
-        parent = self._parent
-        if parent.type is not InteractionType.autocomplete:
+        response_type = InteractionResponseType.autocomplete_result
+        params = interaction_response_params(response_type.value, data=payload)
+
+        if response_type is None or params is None:
             raise ValueError('cannot respond to this interaction with autocomplete.')
 
+        await self._create_response(response_type, params)
+
+
+class InteractionResponse(_BaseInteractionResponse[Interaction]):
+    """Represents a Discord interaction response.
+
+    This type can be accessed through :attr:`Interaction.response`.
+
+    .. versionadded:: 2.0
+    """
+
+    async def _create_response(self, response_type: InteractionResponseType, params: MultipartParameters) -> None:
         adapter = async_context.get()
-        http = parent._state.http
-        params = interaction_response_params(type=InteractionResponseType.autocomplete_result.value, data=payload)
+        http = self._parent._state.http
         await adapter.create_interaction_response(
-            parent.id,
-            parent.token,
-            session=parent._session,
+            self._parent.id,
+            self._parent.token,
+            session=self._parent._session,
             proxy=http.proxy,
             proxy_auth=http.proxy_auth,
             params=params,
         )
+        self._response_type = response_type
 
-        self._response_type = InteractionResponseType.autocomplete_result
+
+class WebInteractionResponse(_BaseInteractionResponse[WebInteraction]):
+    """Represents a Discord interaction response.
+
+    This type can be accessed through :attr:`Interaction.response`.
+
+    .. versionadded:: 2.1
+    """
+
+    __slots__: Tuple[str, ...] = (
+        '_response',
+        '_responded',
+    )
+
+    _response: MultipartParameters
+
+    def __init__(self, parent: WebInteraction):
+        super().__init__(parent)
+        self._responded: asyncio.Event = asyncio.Event()
+
+    async def _create_response(self, response_type: InteractionResponseType, params: MultipartParameters) -> None:
+        self._response = params
+        self._responded.set()
+
+    async def wait(self) -> MultipartParameters:
+        """|coro|
+
+        Waits for the :class:`WebInteraction` to be responded to and returns the response.
+
+        Returns
+        ---------
+        :class:`MultipartParameters`
+            The interaction response payload to send.
+        """
+        await self._responded.wait()
+        return self._response
 
 
 class _InteractionMessageState:
