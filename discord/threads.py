@@ -33,6 +33,8 @@ from .abc import Messageable, GuildChannel, _purge_helper
 from .enums import ChannelType, try_enum
 from .errors import ClientException
 from .flags import ChannelFlags
+from .member import Member
+from .object import Object
 from .permissions import Permissions
 from .utils import MISSING, parse_time, _get_as_snowflake, _unique
 
@@ -47,13 +49,13 @@ if TYPE_CHECKING:
     from .types.threads import (
         Thread as ThreadPayload,
         ThreadMember as ThreadMemberPayload,
+        TheadMemberWithMember as ThreadMemberWithMemberPayload,
         ThreadMetadata,
         ThreadArchiveDuration,
     )
     from .types.snowflake import SnowflakeList
     from .guild import Guild
     from .channel import TextChannel, CategoryChannel, ForumChannel, ForumTag
-    from .member import Member
     from .message import Message, PartialMessage
     from .abc import Snowflake, SnowflakeTime
     from .role import Role
@@ -821,10 +823,10 @@ class Thread(Messageable, Hashable):
             The thread member from the user ID.
         """
 
-        data = await self._state.http.get_thread_member(self.id, user_id)
+        data = await self._state.http.get_thread_member(self.id, user_id, with_member=True)
         return ThreadMember(parent=self, data=data)
 
-    async def fetch_members(self) -> List[ThreadMember]:
+    async def fetch_members(self, *, limit: Optional[int] = None, after: Optional[Snowflake] = None) -> List[ThreadMember]:
         """|coro|
 
         Retrieves all :class:`ThreadMember` that are in this thread.
@@ -832,6 +834,21 @@ class Thread(Messageable, Hashable):
         This requires :attr:`Intents.members` to get information about members
         other than yourself.
 
+        .. note::
+
+            Thread members returned are sorted by :attr:`ThreadMember.joined_at` rather than ID.
+
+        .. versionchanged :: 2.2
+            The ``limit`` and ``after`` parameters were added.
+
+        Parameters
+        -----------
+        limit: Optional[:class:`int`]
+            The maximum number of members to retrieve. If ``None`` then
+            all members are retrieved.
+        after: Optional[:class:`abc.Snowflake`]
+            The member to start retrieving members from sorted by ID.
+        
         Raises
         -------
         HTTPException
@@ -842,9 +859,28 @@ class Thread(Messageable, Hashable):
         List[:class:`ThreadMember`]
             All thread members in the thread.
         """
+        if limit is None:
+            limit = self.member_count
 
-        members = await self._state.http.get_thread_members(self.id)
-        return [ThreadMember(parent=self, data=data) for data in members]
+        thread_members = []
+
+        while limit > 0:
+            retrieve = min(limit, 100)
+
+            after_id = after.id if after else None
+
+            data = await self._state.http.get_thread_members(self.id, with_member=True, limit=retrieve, after=after_id)
+
+            if data:
+                limit -= len(data)
+                after = Object(id=max(data, key=lambda m: m['user_id'])['user_id'])  # members aren't sorted by ID
+            else:
+                # Terminiate loop if we received no data
+                limit = 0
+
+            thread_members.extend(ThreadMember(parent=self, data=member_data) for member_data in data)
+
+        return thread_members
 
     async def delete(self) -> None:
         """|coro|
@@ -923,6 +959,11 @@ class ThreadMember(Hashable):
         The thread's ID.
     joined_at: :class:`datetime.datetime`
         The time the member joined the thread in UTC.
+    member: Optional[:class:`Member`]
+        The member object for this thread member.
+        This is only available when the thread member has been fetched with :meth:`Thread.fetch_member` or :meth:`Thread.fetch_members`.
+
+        .. versionadded:: 2.2
     """
 
     __slots__ = (
@@ -932,9 +973,10 @@ class ThreadMember(Hashable):
         'flags',
         '_state',
         'parent',
+        'member',
     )
 
-    def __init__(self, parent: Thread, data: ThreadMemberPayload) -> None:
+    def __init__(self, parent: Thread, data: Union[ThreadMemberPayload, ThreadMemberWithMemberPayload]) -> None:
         self.parent: Thread = parent
         self._state: ConnectionState = parent._state
         self._from_data(data)
@@ -942,7 +984,7 @@ class ThreadMember(Hashable):
     def __repr__(self) -> str:
         return f'<ThreadMember id={self.id} thread_id={self.thread_id} joined_at={self.joined_at!r}>'
 
-    def _from_data(self, data: ThreadMemberPayload) -> None:
+    def _from_data(self, data: Union[ThreadMemberPayload, ThreadMemberWithMemberPayload]) -> None:
         self.id: int
         try:
             self.id = int(data['user_id'])
@@ -954,6 +996,13 @@ class ThreadMember(Hashable):
             self.thread_id = int(data['id'])
         except KeyError:
             self.thread_id = self.parent.id
+
+        self.member: Optional[Member]
+        member_data = data.get('member')
+        if member_data is not None:
+            self.member = Member(data=member_data, state=self._state, guild=self.parent.guild)
+        else:
+            self.member = None
 
         self.joined_at: datetime = parse_time(data['join_timestamp'])
         self.flags: int = data['flags']

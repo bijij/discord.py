@@ -29,6 +29,7 @@ from typing_extensions import NotRequired
 
 from .snowflake import Snowflake
 from .message import Message
+from .member import MemberWithUser
 
 ThreadType = Literal[10, 11, 12]
 ThreadArchiveDuration = Literal[60, 1440, 4320, 10080]
@@ -39,6 +40,10 @@ class ThreadMember(TypedDict):
     user_id: Snowflake
     join_timestamp: str
     flags: int
+
+
+class TheadMemberWithMember(ThreadMember):
+    member: MemberWithUser
 
 
 class ThreadMetadata(TypedDict):

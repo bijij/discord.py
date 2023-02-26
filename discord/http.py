@@ -1313,13 +1313,82 @@ class HTTPClient:
         route = Route('GET', '/guilds/{guild_id}/threads/active', guild_id=guild_id)
         return self.request(route)
 
-    def get_thread_member(self, channel_id: Snowflake, user_id: Snowflake) -> Response[threads.ThreadMember]:
-        route = Route('GET', '/channels/{channel_id}/thread-members/{user_id}', channel_id=channel_id, user_id=user_id)
-        return self.request(route)
+    @overload
+    def get_thread_member(
+        self, channel_id: Snowflake, user_id: Snowflake, with_member: Literal[False] = ...
+    ) -> Response[threads.ThreadMember]:
+        ...
 
-    def get_thread_members(self, channel_id: Snowflake) -> Response[List[threads.ThreadMember]]:
+    @overload
+    def get_thread_member(
+        self, channel_id: Snowflake, user_id: Snowflake, with_member: Literal[False] = ...
+    ) -> Response[threads.TheadMemberWithMember]:
+        ...
+
+    @overload
+    def get_thread_member(
+        self, channel_id: Snowflake, user_id: Snowflake, with_member: bool = ...
+    ) -> Union[Response[threads.ThreadMember], Response[threads.TheadMemberWithMember]]:
+        ...
+
+    def get_thread_member(
+        self, channel_id: Snowflake, user_id: Snowflake, with_member: bool = False
+    ) -> Union[Response[threads.ThreadMember], Response[threads.TheadMemberWithMember]]:
+
+        params = {
+            'with_member': int(with_member)
+        }
+
+        route = Route('GET', '/channels/{channel_id}/thread-members/{user_id}', channel_id=channel_id, user_id=user_id)
+        return self.request(route, params=params)
+
+    @overload
+    def get_thread_members(
+        self, channel_id: Snowflake, *, with_member: Literal[False] = ...
+    ) -> Response[List[threads.ThreadMember]]:
+        ...
+
+    @overload
+    def get_thread_members(
+        self,
+        channel_id: Snowflake,
+        *,
+        with_member: Literal[True] = ...,
+        limit: int = ...,
+        after: Optional[Snowflake] = ...,
+    ) -> Response[List[threads.TheadMemberWithMember]]:
+        ...
+
+    @overload
+    def get_thread_members(
+        self,
+        channel_id: Snowflake,
+        *,
+        with_member: bool = ...,
+        limit: int = ...,
+        after: Optional[Snowflake] = ...,
+    ) -> Union[Response[List[threads.ThreadMember]], Response[List[threads.TheadMemberWithMember]]]:
+        ...
+
+    def get_thread_members(
+        self,
+        channel_id: Snowflake,
+        *,
+        with_member: bool = False,
+        limit: int = 100,
+        after: Optional[Snowflake] = None,
+    ) -> Union[Response[List[threads.ThreadMember]], Response[List[threads.TheadMemberWithMember]]]:
+        
+        params: Dict[str, Any] = {
+            'with_member': int(with_member)
+        }
+        if with_member:
+            params['limit'] = limit
+            if after:
+                params['after'] = after
+
         route = Route('GET', '/channels/{channel_id}/thread-members', channel_id=channel_id)
-        return self.request(route)
+        return self.request(route, params=params)
 
     # Webhook management
 
