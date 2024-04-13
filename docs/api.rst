@@ -1047,6 +1047,67 @@ Messages
     :param payload: The raw event payload data.
     :type payload: :class:`RawBulkMessageDeleteEvent`
 
+Polls
+~~~~~~
+
+.. function:: on_poll_vote_add(poll, answer, user)
+
+    Called when a user votes on a poll. If the message which contains the poll is not found
+    in the internal message cache, then this event will not be called. Consider using
+    :func:`on_raw_poll_vote_add` instead.
+
+    This requires :attr:`Intents.message_content` and :attr:`Intents.polls` to be enabled.
+
+    .. versionadded:: 2.4
+
+    :param poll: The poll that was voted on.
+    :type poll: :class:`Poll`
+    :param answer: The answer that was voted on.
+    :type answer: :class:`PollAnswer`
+    :param user: The user who voted.
+    :type user: Union[:class:`User`, :class:`Member`]
+
+.. function:: on_poll_vote_remove(poll, answer, user)
+
+    Called when a user removes their vote on a poll. If the message which contains the poll
+    is not found in the internal message cache, then this event will not be called. Consider
+    using :func:`on_raw_poll_vote_remove` instead.
+
+    This requires :attr:`Intents.message_content` and :attr:`Intents.polls` to be enabled.
+
+    .. versionadded:: 2.4
+
+    :param poll: The poll that the vote was removed from.
+    :type poll: :class:`Poll`
+    :param answer: The answer that the vote was removed from.
+    :type answer: :class:`PollAnswer`
+    :param user: The user who removed their vote.
+    :type user: Union[:class:`User`, :class:`Member`]
+
+.. function:: on_raw_poll_vote_add(payload)
+
+    Called when a user votes on a poll. Unlike :func:`on_poll_vote_add`, this is called
+    regardless of the state of the internal message cache.
+
+    This requires :attr:`Intents.message_content` and :attr:`Intents.polls` to be enabled.
+
+    .. versionadded:: 2.4
+
+    :param payload: The raw event payload data.
+    :type payload: :class:`RawPollVoteActionEvent`
+
+.. function:: on_raw_poll_vote_remove(payload)
+    
+    Called when a user removes their vote on a poll. Unlike :func:`on_poll_vote_remove`,
+    this is called regardless of the state of the internal message cache.
+
+    This requires :attr:`Intents.message_content` and :attr:`Intents.polls` to be enabled.
+
+    .. versionadded:: 2.4
+
+    :param payload: The raw event payload data.
+    :type payload: :class:`RawPollVoteActionEvent`
+
 Reactions
 ~~~~~~~~~~
 
@@ -3541,6 +3602,17 @@ of :class:`enum.Enum`.
             The entitlement owner is a user.
 
 
+.. class:: PollLayoutType
+
+    Represents the layout of a poll.
+
+    .. versionadded:: 2.4
+
+    .. attribute:: default
+
+        The default layout.
+
+
 .. _discord-api-audit-logs:
 
 Audit Log Data
@@ -4468,6 +4540,25 @@ Reaction
 .. autoclass:: Reaction()
     :members:
 
+
+Poll
+~~~~~
+
+.. attributetable:: Poll
+
+.. autoclass:: Poll()
+    :members:
+
+
+PollAnswer
+~~~~~~~~~~~
+
+.. attributetable:: PollAnswer
+
+.. autoclass:: PollAnswer()
+    :members:
+
+
 Guild
 ~~~~~~
 
@@ -4969,6 +5060,14 @@ RawAppCommandPermissionsUpdateEvent
 .. attributetable:: RawAppCommandPermissionsUpdateEvent
 
 .. autoclass:: RawAppCommandPermissionsUpdateEvent()
+    :members:
+
+RawPollVoteActionEvent
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. attributetable:: RawPollVoteActionEvent
+
+.. autoclass:: RawPollVoteActionEvent()
     :members:
 
 PartialWebhookGuild

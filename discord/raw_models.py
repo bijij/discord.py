@@ -47,6 +47,7 @@ if TYPE_CHECKING:
         ThreadMembersUpdate,
         TypingStartEvent,
         GuildMemberRemoveEvent,
+        MessagePollVote,
     )
     from .types.command import GuildApplicationCommandPermissions
     from .message import Message
@@ -75,6 +76,7 @@ __all__ = (
     'RawTypingEvent',
     'RawMemberRemoveEvent',
     'RawAppCommandPermissionsUpdateEvent',
+    'RawPollVoteActionEvent',
 )
 
 
@@ -503,3 +505,32 @@ class RawAppCommandPermissionsUpdateEvent(_RawReprMixin):
         self.permissions: List[AppCommandPermissions] = [
             AppCommandPermissions(data=perm, guild=self.guild, state=state) for perm in data['permissions']
         ]
+
+
+class RawPollVoteActionEvent(_RawReprMixin):
+    """Represents the payload for the :func:`on_raw_poll_vote_add` and :func:`on_raw_poll_vote_remove` events.
+
+    .. versionadded:: 2.4
+
+    Attributes
+    ----------
+    user_id: :class:`int`
+        The ID of the user who voted.
+    channel_id: :class:`int`
+        The ID of the channel where the poll is located.
+    message_id: :class:`int`
+        The ID of the message where the poll is located. TODO
+    guild_id: Optional[:class:`int`]
+        The ID of the guild where the poll is located, if applicable.
+    answer_id: :class:`int`
+        The ID of the poll answer that was voted on.
+    """
+
+    __slots__ = ('user_id', 'channel_id', 'message_id', 'guild_id', 'answer_id')
+
+    def __init__(self, data: MessagePollVote) -> None:
+        self.user_id: int = int(data['user_id'])
+        self.channel_id: int = int(data['channel_id'])
+        self.message_id: int = int(data['message_id'])
+        self.guild_id: int | None = _get_as_snowflake(data, 'guild_id')
+        self.answer_id: int = int(data['answer_id'])

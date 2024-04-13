@@ -1185,6 +1185,58 @@ class ConnectionState(Generic[ClientT]):
 
         self.dispatch('automod_action', execution)
 
+    def parse_message_poll_vote_add(self, data: gw.MessagePollVote) -> None:
+        raw = RawPollVoteActionEvent(data)
+
+        guild = self._get_guild(raw.guild_id)
+        message = self._get_message(raw.message_id)
+
+        if guild is not None:
+            user = guild.get_member(raw.user_id)
+        else:
+            user = self.get_user(raw.user_id)
+
+        answer_id = raw.answer_id
+
+        self.dispatch('raw_poll_vote_add', raw)
+
+        if message is not None and user is not None:
+            if message.poll is None:
+                _log.debug(
+                    'POLL_VOTE_ADD referencing message with ID: %s without a poll. Discarding.', data['message_id']
+                )  # Should this be a warn?
+                return
+
+            answer = next(answer for answer in message.poll.answers if answer.id == answer_id)
+            answer._remove_vote(user == self.user)
+            self.dispatch('poll_vote_add', message.poll, answer, user)  # TODO Make this just the answer and user?
+
+    def parse_message_poll_vote_remove(self, data: gw.MessagePollVote) -> None:
+        raw = RawPollVoteActionEvent(data)
+
+        guild = self._get_guild(raw.guild_id)
+        message = self._get_message(raw.message_id)
+
+        if guild is not None:
+            user = guild.get_member(raw.user_id)
+        else:
+            user = self.get_user(raw.user_id)
+
+        answer_id = raw.answer_id
+
+        self.dispatch('raw_poll_vote_remove', raw)
+
+        if message is not None and user is not None:
+            if message.poll is None:
+                _log.debug(
+                    'POLL_VOTE_REMOVE referencing message with ID: %s without a poll. Discarding.', data['message_id']
+                )  #  TODO Should this be a warn?
+                return
+
+            answer = next(answer for answer in message.poll.answers if answer.id == answer_id)
+            answer._remove_vote(user == self.user)
+            self.dispatch('poll_vote_remove', message.poll, answer, user)
+
     def _get_create_guild(self, data: gw.GuildCreateEvent) -> Guild:
         if data.get('unavailable') is False:
             # GUILD_CREATE with unavailable in the response

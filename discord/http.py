@@ -2482,6 +2482,36 @@ class HTTPClient:
             ),
         )
 
+    # Polls
+
+    def get_answer_voters(
+        self,
+        channel_id: Snowflake,
+        message_id: Snowflake,
+        answer_id: int,
+        limit: int,
+        after: Optional[Snowflake] = None,
+    ) -> Response[List[user.User]]:
+        r = Route(
+            'GET',
+            '/channels/{channel_id}/polls/{message_id}/answers/{answer_id}',
+            channel_id=channel_id,
+            message_id=message_id,
+            answer_id=answer_id,
+        )
+
+        params: Dict[str, Any] = {
+            'limit': limit,
+        }
+        if after:
+            params['after'] = after
+        return self.request(r, params=params)
+
+    def expire_poll(self, channel_id: Snowflake, message_id: Snowflake) -> Response[message.Message]:
+        return self.request(
+            Route('POST', '/channels/{channel_id}/polls/{message_id}', channel_id=channel_id, message_id=message_id)
+        )
+
     # Misc
 
     def application_info(self) -> Response[appinfo.AppInfo]:

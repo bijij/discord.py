@@ -37,6 +37,7 @@ from .components import Component
 from .interactions import MessageInteraction
 from .sticker import StickerItem
 from .threads import Thread
+from .poll import Poll
 
 
 class PartialMessage(TypedDict):
@@ -181,6 +182,7 @@ class Message(PartialMessage):
     position: NotRequired[int]
     role_subscription_data: NotRequired[RoleSubscriptionData]
     thread: NotRequired[Thread]
+    poll: NotRequired[Poll]
 
 
 AllowedMentionType = Literal['roles', 'users', 'everyone']
