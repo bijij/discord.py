@@ -2754,7 +2754,7 @@ class ForumChannel(discord.abc.GuildChannel, Hashable):
 
             data = await state.http.start_thread_in_forum(self.id, params=params, reason=reason)
             thread = Thread(guild=self.guild, state=self._state, data=data)
-            message = Message(state=self._state, channel=thread, data=data['message'])
+            message = Message(state=self._state, channel=thread, poll=None, data=data['message'])
             if view and not view.is_finished():
                 self._state.store_view(view, message.id)
 

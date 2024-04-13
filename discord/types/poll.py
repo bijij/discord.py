@@ -24,10 +24,10 @@ DEALINGS IN THE SOFTWARE.
 
 from __future__ import annotations
 
-from typing import TypedDict, List, Literal, TYPE_CHECKING
+from typing import TypedDict, List, Literal
+from typing_extensions import NotRequired
 
-if TYPE_CHECKING:
-    from typing_extensions import NotRequired
+from .emoji import PartialEmoji
 
 
 PollLayoutType = Literal[1]
@@ -42,11 +42,15 @@ class _TextPollMedia(_BasePollMedia):
 
 
 class PollMedia(_BasePollMedia):
-    emoji: NotRequired[str]
+    emoji: NotRequired[PartialEmoji]
 
 
 class _BasePollAnswer(TypedDict):
     poll_media: PollMedia
+
+
+class PollAnswerCreateRequest(_BasePollAnswer):
+    ...
 
 
 class PollAnswer(_BasePollAnswer):
@@ -75,7 +79,7 @@ class Poll(TypedDict):
 
 class PollCreateRequest(TypedDict):
     question: _TextPollMedia
-    answers: List[_BasePollAnswer]
+    answers: List[PollAnswerCreateRequest]
     duration: int
     allow_multiselect: bool
     layout_type: NotRequired[PollLayoutType]

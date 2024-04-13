@@ -840,7 +840,7 @@ class PartialMessage(Hashable):
         """
 
         data = await self._state.http.get_message(self.channel.id, self.id)
-        return self._state.create_message(channel=self.channel, data=data)
+        return self._state.create_message(channel=self.channel, poll=None, data=data)
 
     async def delete(self, *, delay: Optional[float] = None) -> None:
         """|coro|
@@ -1004,7 +1004,7 @@ class PartialMessage(Hashable):
             previous_allowed_mentions=previous_allowed_mentions,
         ) as params:
             data = await self._state.http.edit_message(self.channel.id, self.id, params=params)
-            message = Message(state=self._state, channel=self.channel, data=data)
+            message = Message(state=self._state, channel=self.channel, poll=None, data=data)
 
         if view and not view.is_finished():
             interaction: Optional[MessageInteraction] = getattr(self, 'interaction', None)
@@ -1668,6 +1668,7 @@ class Message(PartialMessage, Hashable):
         *,
         state: ConnectionState,
         channel: MessageableChannel,
+        poll: Optional[Poll],
         data: MessagePayload,
     ) -> None:
         self.channel: MessageableChannel = channel
@@ -1689,7 +1690,12 @@ class Message(PartialMessage, Hashable):
         self.position: Optional[int] = data.get('position')
         self.application_id: Optional[int] = utils._get_as_snowflake(data, 'application_id')
         self.stickers: List[StickerItem] = [StickerItem(data=d, state=state) for d in data.get('sticker_items', [])]
-        self.poll: Optional[Poll] = Poll(message=self, data=data['poll']) if 'poll' in data else None
+        self.poll: Optional[Poll]
+        if 'poll' in data:
+            if poll is not None:
+                self.poll = poll._inject_state(self, data['poll'])
+            else:
+                self.poll = Poll._from_data(data['poll'], message=self)
 
         try:
             # if the channel doesn't have a guild attribute, we handle that
@@ -2382,7 +2388,7 @@ class Message(PartialMessage, Hashable):
             previous_allowed_mentions=previous_allowed_mentions,
         ) as params:
             data = await self._state.http.edit_message(self.channel.id, self.id, params=params)
-            message = Message(state=self._state, channel=self.channel, data=data)
+            message = Message(state=self._state, channel=self.channel, poll=None, data=data)
 
         if view and not view.is_finished():
             self._state.store_view(view, self.id)

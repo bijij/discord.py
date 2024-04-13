@@ -89,6 +89,7 @@ if TYPE_CHECKING:
     from .ui.item import Item
     from .ui.dynamic import DynamicItem
     from .app_commands import CommandTree, Translator
+    from .poll import Poll
 
     from .types.automod import AutoModerationRule, AutoModerationActionExecution
     from .types.snowflake import Snowflake
@@ -1705,8 +1706,8 @@ class ConnectionState(Generic[ClientT]):
             if channel is not None:
                 return channel
 
-    def create_message(self, *, channel: MessageableChannel, data: MessagePayload) -> Message:
-        return Message(state=self, channel=channel, data=data)
+    def create_message(self, *, channel: MessageableChannel, data: MessagePayload, poll: Optional[Poll]) -> Message:
+        return Message(state=self, channel=channel, poll=poll, data=data)
 
 
 class AutoShardedConnectionState(ConnectionState[ClientT]):

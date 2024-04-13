@@ -72,6 +72,7 @@ if TYPE_CHECKING:
     from ..channel import VoiceChannel
     from ..abc import Snowflake
     from ..ui.view import View
+    from ..poll import Poll
     import datetime
     from ..types.webhook import (
         Webhook as WebhookPayload,
@@ -1552,7 +1553,7 @@ class Webhook(BaseWebhook):
             state=self._state,
         )
 
-    def _create_message(self, data, *, thread: Snowflake):
+    def _create_message(self, data, *, thread: Snowflake, poll: Poll = MISSING):
         state = _WebhookState(self, parent=self._state, thread=thread)
         # state may be artificial (unlikely at this point...)
         if thread is MISSING:
@@ -1574,7 +1575,7 @@ class Webhook(BaseWebhook):
                 channel = PartialMessageable(state=self._state, guild_id=self.guild_id, id=int(data['channel_id']))  # type: ignore
 
         # state is artificial
-        return WebhookMessage(data=data, state=state, channel=channel)  # type: ignore
+        return WebhookMessage(data=data, state=state, channel=channel, poll=poll if poll is not MISSING else None)  # type: ignore
 
     @overload
     async def send(
@@ -1622,6 +1623,28 @@ class Webhook(BaseWebhook):
     ) -> None:
         ...
 
+    @overload
+    async def send(
+        self,
+        *,
+        username: str = MISSING,
+        avatar_url: Any = MISSING,
+        poll: Poll,
+        wait: Literal[True] = ...,
+    ) -> WebhookMessage:
+        ...
+
+    @overload
+    async def send(
+        self,
+        *,
+        username: str = MISSING,
+        avatar_url: Any = MISSING,
+        poll: Poll,
+        wait: Literal[False] = ...,
+    ) -> None:
+        ...
+
     async def send(
         self,
         content: str = MISSING,
@@ -1642,6 +1665,7 @@ class Webhook(BaseWebhook):
         suppress_embeds: bool = False,
         silent: bool = False,
         applied_tags: List[ForumTag] = MISSING,
+        poll: Poll = MISSING,
     ) -> Optional[WebhookMessage]:
         """|coro|
 
@@ -1732,6 +1756,11 @@ class Webhook(BaseWebhook):
 
             .. versionadded:: 2.4
 
+        Poll: :class:`Poll`
+            The poll to send with the message. TODO
+
+            .. versionadded:: 2.4
+
         Raises
         --------
         HTTPException
@@ -1809,6 +1838,7 @@ class Webhook(BaseWebhook):
             allowed_mentions=allowed_mentions,
             previous_allowed_mentions=previous_mentions,
             applied_tags=applied_tag_ids,
+            poll=poll,
         ) as params:
             adapter = async_context.get()
             thread_id: Optional[int] = None
@@ -1830,7 +1860,7 @@ class Webhook(BaseWebhook):
 
         msg = None
         if wait:
-            msg = self._create_message(data, thread=thread)
+            msg = self._create_message(data, thread=thread, poll=poll)
 
         if view is not MISSING and not view.is_finished():
             message_id = None if msg is None else msg.id

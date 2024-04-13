@@ -68,6 +68,7 @@ if TYPE_CHECKING:
     from .embeds import Embed
     from .message import Attachment
     from .flags import MessageFlags
+    from .poll import Poll
 
     from .types import (
         appinfo,
@@ -154,6 +155,7 @@ def handle_message_parameters(
     thread_name: str = MISSING,
     channel_payload: Dict[str, Any] = MISSING,
     applied_tags: Optional[SnowflakeList] = MISSING,
+    poll: Poll = MISSING,
 ) -> MultipartParameters:
     if files is not MISSING and file is not MISSING:
         raise TypeError('Cannot mix file and files keyword arguments.')
@@ -249,6 +251,12 @@ def handle_message_parameters(
             payload['applied_tags'] = applied_tags
         else:
             payload['applied_tags'] = []
+
+    if poll is not MISSING:
+        if poll._message is not None:
+            raise ValueError('Poll is already attached to a message.')
+
+        payload['poll'] = poll.to_dict()
 
     if channel_payload is not MISSING:
         payload = {

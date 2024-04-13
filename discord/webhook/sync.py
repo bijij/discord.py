@@ -65,6 +65,7 @@ if TYPE_CHECKING:
     from ..message import Attachment
     from ..abc import Snowflake
     from ..state import ConnectionState
+    from ..poll import Poll
     from ..types.webhook import (
         Webhook as WebhookPayload,
     )
@@ -845,12 +846,14 @@ class SyncWebhook(BaseWebhook):
 
         return SyncWebhook(data=data, session=self.session, token=self.auth_token, state=self._state)
 
-    def _create_message(self, data: MessagePayload, *, thread: Snowflake = MISSING) -> SyncWebhookMessage:
+    def _create_message(
+        self, data: MessagePayload, *, thread: Snowflake = MISSING, poll: Poll = MISSING
+    ) -> SyncWebhookMessage:
         state = _WebhookState(self, parent=self._state, thread=thread)
         # state may be artificial (unlikely at this point...)
         channel = self.channel or PartialMessageable(state=self._state, guild_id=self.guild_id, id=int(data['channel_id']))  # type: ignore
         # state is artificial
-        return SyncWebhookMessage(data=data, state=state, channel=channel)  # type: ignore
+        return SyncWebhookMessage(data=data, state=state, channel=channel, poll=poll if poll is not MISSING else None)  # type: ignore
 
     @overload
     def send(
@@ -894,6 +897,28 @@ class SyncWebhook(BaseWebhook):
     ) -> None:
         ...
 
+    @overload
+    def send(
+        self,
+        *,
+        username: str = MISSING,
+        avatar_url: Any = MISSING,
+        poll: Poll,
+        wait: Literal[True] = ...,
+    ) -> SyncWebhookMessage:
+        ...
+
+    @overload
+    def send(
+        self,
+        *,
+        username: str = MISSING,
+        avatar_url: Any = MISSING,
+        poll: Poll,
+        wait: Literal[False] = ...,
+    ) -> None:
+        ...
+
     def send(
         self,
         content: str = MISSING,
@@ -911,6 +936,7 @@ class SyncWebhook(BaseWebhook):
         wait: bool = False,
         suppress_embeds: bool = False,
         silent: bool = False,
+        poll: Poll = MISSING,
     ) -> Optional[SyncWebhookMessage]:
         """Sends a message using the webhook.
 
@@ -975,6 +1001,10 @@ class SyncWebhook(BaseWebhook):
             in the UI, but will not actually send a notification.
 
             .. versionadded:: 2.2
+        poll: :class:`~discord.Poll`
+            The poll to send with the message. TODO
+
+            .. versionadded:: 2.4
 
         Raises
         --------
@@ -1027,6 +1057,7 @@ class SyncWebhook(BaseWebhook):
             allowed_mentions=allowed_mentions,
             previous_allowed_mentions=previous_mentions,
             flags=flags,
+            poll=poll,
         ) as params:
             adapter: WebhookAdapter = _get_webhook_adapter()
             thread_id: Optional[int] = None
@@ -1045,7 +1076,7 @@ class SyncWebhook(BaseWebhook):
             )
 
         if wait:
-            return self._create_message(data, thread=thread)
+            return self._create_message(data, thread=thread, poll=poll)
 
     def fetch_message(self, id: int, /, *, thread: Snowflake = MISSING) -> SyncWebhookMessage:
         """Retrieves a single :class:`~discord.SyncWebhookMessage` owned by this webhook.

@@ -94,6 +94,7 @@ if TYPE_CHECKING:
     )
     from .threads import Thread
     from .ui.view import View
+    from .poll import Poll
     from .types.channel import (
         PermissionOverwrite as PermissionOverwritePayload,
         Channel as ChannelPayload,
@@ -1413,6 +1414,15 @@ class Messageable:
     ) -> Message:
         ...
 
+    @overload
+    async def send(
+        self,
+        *,
+        poll: Poll,
+        reference: Union[Message, MessageReference, PartialMessage] = ...,
+    ) -> Message:
+        ...
+
     async def send(
         self,
         content: Optional[str] = None,
@@ -1431,6 +1441,7 @@ class Messageable:
         view: Optional[View] = None,
         suppress_embeds: bool = False,
         silent: bool = False,
+        poll: Optional[Poll] = None,
     ) -> Message:
         """|coro|
 
@@ -1516,6 +1527,10 @@ class Messageable:
             in the UI, but will not actually send a notification.
 
             .. versionadded:: 2.2
+        poll: :class:`~discord.Poll`
+            The poll to attach to this message. This cannot be used with TODO
+
+            .. versionadded:: 2.4
 
         Raises
         --------
@@ -1582,10 +1597,11 @@ class Messageable:
             stickers=sticker_ids,
             view=view,
             flags=flags,
+            poll=poll if poll is not None else MISSING,
         ) as params:
             data = await state.http.send_message(channel.id, params=params)
 
-        ret = state.create_message(channel=channel, data=data)
+        ret = state.create_message(channel=channel, data=data, poll=poll)
         if view and not view.is_finished():
             state.store_view(view, ret.id)
 
@@ -1647,7 +1663,7 @@ class Messageable:
 
         channel = await self._get_channel()
         data = await self._state.http.get_message(channel.id, id)
-        return self._state.create_message(channel=channel, data=data)
+        return self._state.create_message(channel=channel, poll=None, data=data)
 
     async def pins(self) -> List[Message]:
         """|coro|
@@ -1676,7 +1692,7 @@ class Messageable:
         channel = await self._get_channel()
         state = self._state
         data = await state.http.pins_from(channel.id)
-        return [state.create_message(channel=channel, data=m) for m in data]
+        return [state.create_message(channel=channel, poll=None, data=m) for m in data]
 
     async def history(
         self,
@@ -1836,7 +1852,7 @@ class Messageable:
             count = 0
 
             for count, raw_message in enumerate(data, 1):
-                yield self._state.create_message(channel=channel, data=raw_message)
+                yield self._state.create_message(channel=channel, poll=None, data=raw_message)
 
             if count < 100:
                 # There's no data left after this
