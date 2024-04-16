@@ -532,5 +532,5 @@ class RawPollVoteActionEvent(_RawReprMixin):
         self.user_id: int = int(data['user_id'])
         self.channel_id: int = int(data['channel_id'])
         self.message_id: int = int(data['message_id'])
-        self.guild_id: int | None = _get_as_snowflake(data, 'guild_id')
+        self.guild_id: Optional[int] = _get_as_snowflake(data, 'guild_id')
         self.answer_id: int = int(data['answer_id'])
